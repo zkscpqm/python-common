@@ -1,81 +1,100 @@
-from datetime import datetime as _dt, timedelta
-from random import randrange
+import time
+from datetime import datetime as _dt
+from typing import Iterable
+from threading import Thread
 
-from types_extensions import void, safe_type, Final
+from types_extensions import Number_t, safe_type, Function, void
 
 
-class Split:
+class _TimerThread(Thread):
 
-    def __init__(self, taken_at: _dt, since_start: timedelta, since_last_split: timedelta) -> void:
-        self.taken_at: Final[_dt] = taken_at
-        self.since_start: Final[timedelta] = since_start
-        self.since_last_split: Final[timedelta] = since_last_split
+    def __init__(self, timeout: Number_t, *, repetitions: int, callbacks: Iterable[Function],
+                 callback_args: tuple, callback_kwargs: dict, name: str = None) -> void:
+        Thread.__init__(self, name=name)
+        self.timeout: Number_t = timeout
+        self.repetitions: int = repetitions
+        self.stopped = False
+        self.paused = False
+        self.elapsed: float = 0.
+        self.started_at: safe_type(_dt) = None
+        self._callbacks: Iterable[Function] = callbacks
+        self._callback_args: tuple = callback_args
+        self._callback_kwargs: dict = callback_kwargs
 
-    def __str__(self) -> str:
-        return f"Split(<{self.taken_at}>, since_start={self.since_start}, since_last_split={self.since_last_split})"
+    def stop(self) -> void:
+        self.stopped = True
 
-    def __repr__(self) -> str:
-        return str(self)
+    def restart(self) -> void:
+        self.stopped = False
+        self.paused = False
+        self.run()
+
+    def pause(self) -> void:
+        self.paused = True
+
+    def unpause(self) -> void:
+        self.paused = False
+
+    def start(self):
+        self.started_at = _dt.now()
+        Thread.start(self)
+
+    def run(self) -> void:
+        for current in range(self.repetitions):
+            sleep_times = self.timeout * 10
+            for sleep_number in range(sleep_times):
+                if self.stopped:
+                    break
+                while self.paused:
+                    ...
+                time.sleep(0.1)
+                self.elapsed += 0.1
+            if self.stopped:
+                self.repetitions -= current
+                break
+
+            for callback in self._callbacks:
+                if self.stopped:
+                    break
+                callback(*self._callback_args, **self._callback_kwargs)
+
+    def force_join(self, timeout: float) -> void:
+        self.stop()
+        return self.join(timeout)
 
 
 class Timer:
 
-    def __init__(self, name: str = None) -> void:
-        self.name = name or f'timer-{randrange(10000, 99999)}'
-        self.start_time: safe_type(_dt) = None
-        self.end_time: safe_type(_dt) = None
+    def __init__(self, timeout: Number_t, *, repetitions: int = 1, callbacks: Iterable[Function] = (),
+                 callback_args: tuple = (), callback_kwargs: dict = None) -> void:
         self.is_running: bool = False
-        self.splits: list[Split] = []
+        self._thread: _TimerThread = self._create_thread(timeout,
+                                                         repetitions=repetitions,
+                                                         callbacks=callbacks,
+                                                         callback_args=callback_args,
+                                                         callback_kwargs=callback_kwargs or {})
 
-    def __enter__(self) -> 'Timer':
-        self.start()
-        return self
+    @staticmethod
+    def _create_thread(timeout: Number_t, repetitions: int, callbacks: Iterable[Function],
+                       callback_args: tuple, callback_kwargs: dict) -> _TimerThread:
+        return _TimerThread(timeout, repetitions=repetitions, callbacks=callbacks,
+                            callback_args=callback_args, callback_kwargs=callback_kwargs)
 
-    def __exit__(self, *a, **k) -> void:
-        self.stop()
-
-    def start(self, reset_stats: bool = True) -> void:
-        if reset_stats:
-            self.end_time = None
-            self.splits = []
-        self.start_time = _dt.now()
+    def start(self) -> void:
         self.is_running = True
+        self._thread.start()
 
-    def stop(self) -> Split:
-        last_split = self.split()
-        self.is_running = False
-        self.end_time = last_split.taken_at
-        return last_split
+    def elapsed(self) -> float:
+        return self._thread.elapsed
 
-    def split(self) -> Split:
-        if not self.is_running:
-            raise TimerNotRunningException
+    def started_at(self) -> safe_type(_dt):
+        return self._thread.started_at
 
-        now_ = _dt.now()
-        last_split_time = self.splits[-1].taken_at if self.splits else self.start_time
+    def pause(self) -> void:
+        self._thread.pause()
 
-        new_split = Split(taken_at=now_,
-                          since_start=now_ - self.start_time,
-                          since_last_split=now_ - last_split_time)
-        self.splits.append(new_split)
-        return new_split
+    def unpause(self) -> void:
+        self._thread.unpause()
 
-    def reset(self, stop: bool = False) -> void:
-        if stop:
-            self.stop()
-        self.start_time = _dt.now() if self.is_running else None
-        self.splits = []
-        self.end_time = None
-
-    def __str__(self) -> str:
-        return f"Timer(name={self.name} running_since: {self.start_time if self.is_running else 'not running'})"
-
-    def __repr__(self) -> str:
-        return str(self)
-
-
-class TimerNotRunningException(Exception):
-
-    def __str__(self) -> str:
-        message = "The timer is not running! To do this, you need to call the start() method or use the context manager"
-        return message
+    def force_join(self, timeout: float = None) -> void:
+        self._thread.force_join(timeout)
