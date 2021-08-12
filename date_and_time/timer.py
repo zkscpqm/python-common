@@ -13,7 +13,7 @@ class _TimerThread(Thread):
         Thread.__init__(self, name=name)
         self.timeout: Number_t = timeout
         self.repetitions: int = repetitions
-        self.stopped = False
+        self.stopped = True
         self.paused = False
         self.elapsed: float = 0.
         self.started_at: safe_type(_dt) = None
@@ -35,7 +35,8 @@ class _TimerThread(Thread):
     def unpause(self) -> void:
         self.paused = False
 
-    def start(self):
+    def start(self) -> void:
+        self.stopped = False
         self.started_at = _dt.now()
         Thread.start(self)
 
@@ -60,7 +61,7 @@ class _TimerThread(Thread):
 
     def force_join(self, timeout: float) -> void:
         self.stop()
-        return self.join(timeout)
+        self.join(timeout)
 
 
 class Timer:
