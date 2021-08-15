@@ -4,8 +4,7 @@ from typing import *
 
 Number_t = int | float | Decimal
 Function = Method = Callable
-void = NULL = null = None
-string = str
+void = NULL = null = nil = None
 string_like = str | bytes
 
 

@@ -16,6 +16,9 @@ class ContextEntryData:
     def get_current_data(self) -> Any:
         return self.data[-1]
 
+    def __str__(self) -> str:
+        return str(self.get_current_data())
+
 
 class _ContextEntry:
 
@@ -42,8 +45,11 @@ class ContextTable:
     def __enter__(self) -> 'ContextTable':
         return self
 
-    def __exit__(self) -> void:
+    def __exit__(self, _, __, ___) -> void:
         pass
+
+    def exists(self, key: Any) -> bool:
+        return key in self._table
 
     def get(self, key: Any) -> ContextEntryData:
         if entry := self._table.get(key):
