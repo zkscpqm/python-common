@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Final
 from datetime import datetime as _dt
 
@@ -49,24 +50,37 @@ class ContextTable:
         pass
 
     def exists(self, key: Any) -> bool:
+        key = self.define_key(key)
         return key in self._table
 
     def get(self, key: Any) -> ContextEntryData:
+        key = self.define_key(key)
         if entry := self._table.get(key):
             return entry.data
 
     def upsert(self, key: Any, value: Any, preserve_old_data: bool = False) -> void:
+        key = self.define_key(key)
         if key not in self._table:
             self._table[key] = _ContextEntry(key=key, data=value)
         else:
             self._table[key].update(value, preserve_old_data)
 
     def delete(self, key: Any, preserve_old_data: bool = False) -> void:
+        key = self.define_key(key)
         if not preserve_old_data:
             del self._table[key]
         else:
             if key in self._table:
                 self.upsert(key=key, value=void, preserve_old_data=preserve_old_data)
+
+    @staticmethod
+    def define_key(key: Any) -> Any:
+        try:
+            hash(key)
+        except ValueError:
+            warnings.warn(f"The given key: {key} cannot be hashed, so it is stored by its str() representation instead")
+            key = str(key)
+        return key
 
     def __setitem__(self, key: Any, value: Any) -> void:
         self.upsert(key, value)
