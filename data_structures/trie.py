@@ -90,13 +90,13 @@ class Trie:
 
     default_charset = 'abcdefghijklmnopqrstuvwxyz1234567890'
 
-    def __init__(self, trie_charset: str | Iterable[str] = None, node_charset: str | Iterable[str] = None) -> void:
+    def __init__(self, trie_charset: str | Iterable[str] = void, node_charset: str | Iterable[str] = void) -> void:
         self.charset: set[str] = iterable_to_set(trie_charset or self.default_charset)
         self.heads: dict[str, _TrieNode] = {}
-        self._node_charset = node_charset
+        self._node_charset: str | Iterable[str] = node_charset
         self.size: int = 0
 
-    def __setattr__(self, key: str, value: Any):
+    def __setattr__(self, key: str, value: Any) -> void:
         if len(key) == 1 and key in self.charset and not isinstance(value, _TrieNode):
             raise ReservedAttributeException(key)
         super().__setattr__(key, value)
@@ -144,7 +144,7 @@ class Trie:
         word = word.casefold()
         first_letter = word[0]
         if first_letter not in self.heads:
-            return None
+            return void
         new_partial = word[1:]
         rv = self.heads[first_letter].delete(partial=new_partial, delete_downstream=delete_downstream)
         if rv:
@@ -161,7 +161,7 @@ class Trie:
             return False
         node = self.heads[first_letter]
         for letter in word[1:]:
-            node = getattr(node, letter, None)
+            node = getattr(node, letter, void)
             if not node:
                 return False
         return node.complete
@@ -199,7 +199,7 @@ class EmptyInputException(Exception):
 
 class ReservedAttributeException(Exception):
 
-    def __init__(self, character: str):
+    def __init__(self, character: str) -> void:
         self.char: Final[str] = character
 
     def __str__(self) -> str:

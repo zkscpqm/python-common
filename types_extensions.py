@@ -10,4 +10,4 @@ string_like = str | bytes
 
 
 def safe_type(type_: type) -> Union:
-    return type_ | None
+    return type_ | void

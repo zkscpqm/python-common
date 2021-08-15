@@ -20,10 +20,10 @@ class Split:
 
 class Stopwatch:
 
-    def __init__(self, name: str = None) -> void:
-        self.name = name or f'stopwatch-{randrange(10000, 99999)}'
-        self.start_time: safe_type(_dt) = None
-        self.end_time: safe_type(_dt) = None
+    def __init__(self, name: str = void) -> void:
+        self.name: str = name or f'stopwatch-{randrange(10000, 99999)}'
+        self.start_time: safe_type(_dt) = void
+        self.end_time: safe_type(_dt) = void
         self.is_running: bool = False
         self.splits: list[Split] = []
 
@@ -36,7 +36,7 @@ class Stopwatch:
 
     def start(self, reset_stats: bool = True) -> void:
         if reset_stats:
-            self.end_time = None
+            self.end_time = void
             self.splits = []
         self.start_time = _dt.now()
         self.is_running = True
@@ -63,9 +63,9 @@ class Stopwatch:
     def reset(self, stop: bool = False) -> void:
         if stop:
             self.stop()
-        self.start_time = _dt.now() if self.is_running else None
+        self.start_time = _dt.now() if self.is_running else void
         self.splits = []
-        self.end_time = None
+        self.end_time = void
 
     def __str__(self) -> str:
         return f"Stopwatch(name={self.name} running_since: {self.start_time if self.is_running else 'not running'})"

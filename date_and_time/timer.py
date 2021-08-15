@@ -9,14 +9,14 @@ from types_extensions import Number_t, safe_type, Function, void
 class _TimerThread(Thread):
 
     def __init__(self, timeout: Number_t, *, repetitions: int, callbacks: Iterable[Function],
-                 callback_args: tuple, callback_kwargs: dict, name: str = None) -> void:
+                 callback_args: tuple, callback_kwargs: dict, name: str = void) -> void:
         Thread.__init__(self, name=name)
         self.timeout: Number_t = timeout
         self.repetitions: int = repetitions
         self.stopped = True
         self.paused = False
         self.elapsed: float = 0.
-        self.started_at: safe_type(_dt) = None
+        self.started_at: safe_type(_dt) = void
         self._callbacks: Iterable[Function] = callbacks
         self._callback_args: tuple = callback_args
         self._callback_kwargs: dict = callback_kwargs
@@ -67,7 +67,7 @@ class _TimerThread(Thread):
 class Timer:
 
     def __init__(self, timeout: Number_t, *, repetitions: int = 1, callbacks: Iterable[Function] = (),
-                 callback_args: tuple = (), callback_kwargs: dict = None) -> void:
+                 callback_args: tuple = (), callback_kwargs: dict = void) -> void:
         self.is_running: bool = False
         self._thread: _TimerThread = self._create_thread(timeout,
                                                          repetitions=repetitions,
@@ -97,5 +97,5 @@ class Timer:
     def unpause(self) -> void:
         self._thread.unpause()
 
-    def force_join(self, timeout: float = None) -> void:
+    def force_join(self, timeout: float = void) -> void:
         self._thread.force_join(timeout)
