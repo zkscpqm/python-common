@@ -1,15 +1,15 @@
 from datetime import datetime as _dt, timedelta
 from random import randrange
 
-from types_extensions import void, safe_type, Final
+from types_extensions import void, safe_type, const
 
 
 class Split:
 
     def __init__(self, taken_at: _dt, since_start: timedelta, since_last_split: timedelta) -> void:
-        self.taken_at: Final[_dt] = taken_at
-        self.since_start: Final[timedelta] = since_start
-        self.since_last_split: Final[timedelta] = since_last_split
+        self.taken_at: const(_dt) = taken_at
+        self.since_start: const(timedelta) = since_start
+        self.since_last_split: const(timedelta) = since_last_split
 
     def __str__(self) -> str:
         return f"Split(<{self.taken_at}>, since_start={self.since_start}, since_last_split={self.since_last_split})"
@@ -26,6 +26,13 @@ class Stopwatch:
         self.end_time: safe_type(_dt) = void
         self.is_running: bool = False
         self.splits: list[Split] = []
+
+    @property
+    def elapsed(self) -> timedelta:
+        if self.is_running:
+            return _dt.now() - self.start_time
+        if self.start_time:
+            return self.end_time - self.start_time
 
     def __enter__(self) -> 'Stopwatch':
         self.start()

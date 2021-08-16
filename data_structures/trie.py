@@ -1,7 +1,7 @@
 import functools
-from typing import Iterable, Final, Any
+from typing import Iterable, Any
 
-from types_extensions import void
+from types_extensions import void, const
 
 
 class _TrieNode:
@@ -11,7 +11,7 @@ class _TrieNode:
     def __init__(self, character: str, charset: str | Iterable[str]) -> void:
 
         self.charset: set[str] = iterable_to_set(charset or self.default_charset)
-        self.character: Final[str] = character
+        self.character: const(str) = character
         self.children: dict[str, _TrieNode] = {}
         self.size: int = 0
         self.complete: bool = False
@@ -181,8 +181,8 @@ def iterable_to_set(charset: Iterable[str]) -> set[str]:
 class InvalidCharacterException(Exception):
 
     def __init__(self, character: str, allowed_charset: str | Iterable[str]) -> void:
-        self.character: Final[str] = character
-        self.allowed_charset: Final[str] = allowed_charset
+        self.character: const(str) = character
+        self.allowed_charset: const(str) = allowed_charset
 
     def __str__(self) -> str:
         message = f"Invalid character detected in input string {self.character}." \
@@ -200,7 +200,7 @@ class EmptyInputException(Exception):
 class ReservedAttributeException(Exception):
 
     def __init__(self, character: str) -> void:
-        self.char: Final[str] = character
+        self.char: const(str) = character
 
     def __str__(self) -> str:
         message = f"The attribute {self.char} is reserved for this class."

@@ -1,14 +1,14 @@
 import random
-from typing import Iterable, Final
+from typing import Iterable
 
 from context.context import GlobalContextTable
-from types_extensions import void
+from types_extensions import void, const
 
 
 class UIDGenerator:
 
     _DEFAULT_CHARSET: str = "abcdefghijklmnopqrstuvwxyz1234567890"
-    CONTEXT_KEY: Final[str] = "active_global_uids"
+    CONTEXT_KEY: const(str) = "active_global_uids"
 
     def __init__(self, length: int = 8, charset: str | Iterable[str] = None) -> void:
 

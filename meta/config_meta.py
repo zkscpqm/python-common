@@ -1,5 +1,6 @@
 from typing import Any
 import os
+import abc
 
 from types_extensions import void
 
@@ -7,6 +8,7 @@ try:
     import boto3
     boto3_exists: bool = True
 except ImportError:
+    boto3 = None
     boto3_exists = False
 
 
@@ -27,6 +29,10 @@ class BasicConfigMeta(type):
                         ...
             if value:
                 return value
+
+
+class BaseConfig(metaclass=(BasicConfigMeta, abc.ABCMeta)):
+    ...
 
 
 class FinalConfigMeta(BasicConfigMeta):

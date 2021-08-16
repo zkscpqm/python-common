@@ -1,9 +1,9 @@
 import warnings
-from typing import Any, Final
+from typing import Any
 from datetime import datetime as _dt
 
 from meta.singleton_meta import SingletonMeta, ThreadLocalSingletonMeta
-from types_extensions import void
+from types_extensions import void, const
 
 
 class ContextEntryData:
@@ -11,7 +11,7 @@ class ContextEntryData:
     def __init__(self, key: Any, data: Any) -> void:
         self.key: Any = key
         self.data: list[Any] = [data]
-        self.created_at: Final[_dt] = _dt.now()
+        self.created_at: const(_dt) = _dt.now()
         self.changelog: list[_dt] = [self.created_at]
 
     def get_current_data(self) -> Any:
