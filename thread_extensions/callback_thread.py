@@ -1,7 +1,7 @@
 from threading import Thread
 from typing import Any, Iterable, Mapping
 
-from types_extensions import Number_t, Function, void, safe_type
+from types_extensions import Function, void, safe_type
 
 
 class CallbackThread(Thread):
@@ -20,7 +20,7 @@ class CallbackThread(Thread):
         self._callback_extra_kwargs: safe_type(Mapping[str, Any]) = callback_extra_kwargs or {}
 
     def run(self) -> void:
-        if self._target is not None:
+        if self._target:
             return_value = self._target(*self._args, **self._kwargs)
             if self._callback:
                 self._callback(return_value, *self._callback_extra_args, **self._callback_extra_kwargs)

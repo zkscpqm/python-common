@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import *
 
 
-Number_t = int | float | Decimal
+Number_t = int | float | complex | Decimal
 Function = Method = Callable
 void = NULL = null = nil = None
 string_like = str | bytes
