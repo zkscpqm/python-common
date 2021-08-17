@@ -3,16 +3,19 @@ import abc
 import boto3
 from botocore.client import BaseClient
 
-from meta.singleton_meta import SingletonMeta
 
+class BaseAmazonService(abc.ABC):
 
-class BaseAmazonService(metaclass=(SingletonMeta, abc.ABCMeta)):
-
-    _backend: boto3.Session = boto3.Session()
+    _backend:  boto3.Session = boto3.Session()
     _client: BaseClient
 
     @abc.abstractmethod
     def check_service_availability(self) -> int:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
         raise NotImplementedError
 
     @property

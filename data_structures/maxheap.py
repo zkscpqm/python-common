@@ -84,7 +84,7 @@ class MaxHeap:
     def peek(self) -> Number_t:
         if self.heap_size > 0:
             return self.data[0]
-        return void
+        return
 
     @staticmethod
     def _left(idx: int) -> int:

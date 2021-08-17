@@ -26,7 +26,7 @@ class LazyClassProperty:
 
     def __get__(self, obj: type, cls: type) -> Any:
         if cls is void:
-            return void
+            return
         result = self.__func(cls)
         setattr(cls, self.__name__, result)
         return result

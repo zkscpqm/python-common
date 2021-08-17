@@ -31,7 +31,7 @@ class BasicConfigMeta(type):
                 return value
 
 
-class BaseConfig(metaclass=(BasicConfigMeta, abc.ABCMeta)):
+class BaseConfig(metaclass=BasicConfigMeta):
     ...
 
 

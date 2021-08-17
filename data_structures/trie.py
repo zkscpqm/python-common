@@ -144,7 +144,7 @@ class Trie:
         word = word.casefold()
         first_letter = word[0]
         if first_letter not in self.heads:
-            return void
+            return
         new_partial = word[1:]
         rv = self.heads[first_letter].delete(partial=new_partial, delete_downstream=delete_downstream)
         if rv:
