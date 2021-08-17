@@ -3,11 +3,11 @@ import warnings
 from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.exception_handling import ExceptionLevels
-from types_extensions import const, safe_type
+from types_extensions import const, safe_type, void
 
 import boto3
 
-from cloud.amazon.aws_service_name_mapping import AWSServiceNameMapping
+from cloud.amazon.common.aws_service_name_mapping import AWSServiceNameMapping
 from cloud.amazon.common.base_service import BaseAmazonService, BaseClient
 from cloud.amazon.common.service_availability import ServiceAvailability
 
@@ -15,7 +15,7 @@ from cloud.amazon.common.service_availability import ServiceAvailability
 class AmazonS3(BaseAmazonService):
 
     def __init__(self, profile: str = None, region: str = None, default_exception_level: int = None,
-                 delimiter: str = '', bucket_prefix: str = '', bucket_suffix: str = ''):
+                 delimiter: str = '', bucket_prefix: str = '', bucket_suffix: str = '') -> void:
         if profile:
             self._backend: boto3.Session = boto3.Session(profile_name=profile)
         self.default_exception_level: int = default_exception_level or ExceptionLevels.RAISE
@@ -95,7 +95,7 @@ class AmazonS3(BaseAmazonService):
                 raise
             kw_ = "was not created."
             rv = None
-            if bucket_name in self.get_buckets():
+            if bucket_name in self.get_buckets(exception_level=exception_level):
                 kw_ = "was created."
                 rv = bucket_name
             if exception_level == ExceptionLevels.WARN:
