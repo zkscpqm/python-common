@@ -1,3 +1,4 @@
+import abc
 import warnings
 from typing import Any
 from datetime import datetime as _dt
@@ -38,7 +39,7 @@ class _ContextEntry:
         return self._data
 
 
-class ContextTable:
+class ContextTable(metaclass=abc.ABCMeta):
 
     def __init__(self) -> void:
         self._table: dict[Any, _ContextEntry] = {}

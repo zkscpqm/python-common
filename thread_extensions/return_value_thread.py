@@ -5,6 +5,21 @@ from types_extensions import Number_t, Function, void, safe_type
 
 
 class ReturnValueThread(Thread):
+    """
+    An extension to python's threading API allowing for the passed function's return value to be retrieved
+    when joining the thread.
+
+    Usage:
+
+    >>> def func(x: int) -> int:
+    >>>     return x + 1
+
+    >>> thread_ = ReturnValueThread(target=func, kwargs={'x': 10})
+    >>> thread_.start()
+    >>> result = thread_.join()
+    >>> assert result == 11
+
+    """
 
     def __init__(self, group: void = None, target: Function = None, name: str = None,
                  args: Iterable[Any] = (), kwargs: Mapping[str, Any] = None, *, daemon: bool = None) -> void:

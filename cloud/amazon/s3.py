@@ -93,11 +93,11 @@ class AmazonS3(BaseAmazonService):
         except Exception as e:
             if exception_level == ExceptionLevels.RAISE:
                 raise
-            kw_ = "was not created."
+            kw_ = "was not"
             rv = None
             if bucket_name in self.get_buckets(exception_level=exception_level):
-                kw_ = "was created."
+                kw_ = "was"
                 rv = bucket_name
             if exception_level == ExceptionLevels.WARN:
-                warnings.warn(f"An unknown exception occurred. The bucket {kw_}")
+                warnings.warn(f"An unknown exception occurred. The bucket {kw_} created.")
             return rv

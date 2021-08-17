@@ -4,6 +4,16 @@ from types_extensions import void
 
 
 class LazyProperty:
+    """
+    A decorator class used for defining *instance* properties which should not be evaluated prior to being needed.
+    These are not cached.
+
+    Usage:
+
+    >>> @LazyProperty
+    >>> def some_property(self) -> int:
+    >>>     return 1
+    """
 
     def __init__(self, func: Callable) -> void:
         self.__func: Callable = func
@@ -18,6 +28,16 @@ class LazyProperty:
 
 
 class LazyClassProperty:
+    """
+    A decorator class used for defining *class* properties which should not be evaluated prior to being needed.
+    These are not cached.
+
+    Usage:
+
+    >>> @LazyClassProperty
+    >>> def some_property(cls) -> int:
+    >>>     return 1
+    """
 
     def __init__(self, func: Callable) -> void:
         self.__func: Callable = func
