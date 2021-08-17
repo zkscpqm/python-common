@@ -24,7 +24,8 @@ whether a file you want imports anything else from the repo. At the very least i
 ## Requirements
 
 Most of the resources have no 3rd-party requirements. Obviously any AWS wrapper will need `boto3`, any web request macros
-will need `requests` or `urllib3` etc.
+will need `requests` or `urllib3` etc. For now a minimum python version required is `3.10rc01`. Compatibility with older
+versions will be done eventually.
 
 
 ## Contributing
