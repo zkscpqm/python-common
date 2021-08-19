@@ -90,7 +90,7 @@ class Trie:
 
     default_charset = 'abcdefghijklmnopqrstuvwxyz1234567890'
 
-    def __init__(self, trie_charset: str | Iterable[str] = void, node_charset: str | Iterable[str] = void) -> void:
+    def __init__(self, trie_charset: str | Iterable[str] = None, node_charset: str | Iterable[str] = None) -> void:
         self.charset: set[str] = iterable_to_set(trie_charset or self.default_charset)
         self.heads: dict[str, _TrieNode] = {}
         self._node_charset: str | Iterable[str] = node_charset

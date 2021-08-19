@@ -20,7 +20,7 @@ class LazyProperty:
         self.__name__ = func.__name__
         self.__doc__ = func.__doc__
 
-    def __get__(self, obj: type, klass: type = void) -> Any:
+    def __get__(self, obj: type, klass: type = None) -> Any:
         if obj is void:
             return
         result = obj.__dict__[self.__name__] = self.__func(obj)

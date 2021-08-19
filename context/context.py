@@ -30,7 +30,7 @@ class _ContextEntry:
     def update(self, new_data: Any, preserve_old_data: bool) -> void:
         previous_idx = len(self._data.data) - 1
         if not preserve_old_data:
-            self.data.data[previous_idx] = void
+            self.data.data[previous_idx] = None
         self.data.data.append(new_data)
         self.data.changelog.append(_dt.now())
 

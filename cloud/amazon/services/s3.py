@@ -2,7 +2,7 @@ import warnings
 
 from botocore import exceptions as aws_exceptions
 
-from cloud.amazon.common.exception_handling import ExceptionLevels
+from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException
 from types_extensions import const, safe_type, void
 
 import boto3
@@ -47,21 +47,28 @@ class AmazonS3(BaseAmazonService):
     def is_connected(self) -> bool:
         return (self.check_service_availability() & ServiceAvailability.CONNECTED) == ServiceAvailability.CONNECTED
 
-    def get_buckets(self, exception_level: int = None) -> list[str]:
+    def _assert_connection(self, exception_level: int = None) -> bool:
         exception_level = exception_level or self.default_exception_level
         if not self.is_connected():
             if exception_level == ExceptionLevels.RAISE:
                 raise aws_exceptions.ConnectionError
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"Could not connect to s3. Please check your connection and try again.")
+            return False
+        return True
+
+    def get_buckets(self, exception_level: int = None) -> list[str]:
+        if not self._assert_connection(exception_level):
             return []
         aws_resp = self._client.list_buckets()
         return [bucket_name['Name'] for bucket_name in aws_resp['Buckets']]
 
     def create_bucket(self, bucket_name: str, apply_format: bool = True,
-                      acl: str = 'private', region: str = None, lock_enabled: bool = True,
-                      exception_level: int = None) -> safe_type(str):
+                      acl: str = 'private', region: str = None, lock_enabled: bool = False,
+                      exception_level: int = None, **kwargs) -> safe_type(str):
         exception_level = exception_level or self.default_exception_level
+        if not self._assert_connection(exception_level):
+            return None
         region = region or self.region
         if apply_format:
             bucket_name = self.build_bucket_name(bucket_name)
@@ -70,7 +77,8 @@ class AmazonS3(BaseAmazonService):
                 ACL=acl,
                 Bucket=bucket_name,
                 CreateBucketConfiguration={'LocationConstraint': region},
-                ObjectLockEnabledForBucket=lock_enabled
+                ObjectLockEnabledForBucket=lock_enabled,
+                **kwargs
             )
             return aws_resp['Location']
 
@@ -99,5 +107,59 @@ class AmazonS3(BaseAmazonService):
                 kw_ = "was"
                 rv = bucket_name
             if exception_level == ExceptionLevels.WARN:
-                warnings.warn(f"An unknown exception occurred. The bucket {kw_} created.")
+                warnings.warn(f"An unknown exception occurred. The bucket {kw_} created. The error is:\n{e}")
             return rv
+
+    def get_objects_in_bucket(self, bucket_name: str, apply_format: bool = True,
+                              exception_level: int = None, mode: str = 'mapping') -> dict:
+        _allowed_modes = {'raw', 'mapping'}
+        exception_level = exception_level or self.default_exception_level
+        if mode not in _allowed_modes:
+            raise InvalidArgumentException(mode, _allowed_modes)
+        if not self._assert_connection(exception_level):
+            return {}
+        if apply_format:
+            bucket_name = self.build_bucket_name(bucket_name)
+        bucket_objects = self._client.list_objects(Bucket=bucket_name)['Contents']
+        match mode:
+
+            case x if x == 'raw':
+                return bucket_objects
+
+            case x if x == 'mapping':
+                return {obj['Key']: obj for obj in bucket_objects}
+
+    def put_object_in_bucket(self, bucket_name: str, object_path: str, apply_format: bool = True,
+                             object_name: str = None, exception_level: int = None, acl: str = 'private',
+                             encryption: str = 'aws:kms', metadata: dict[str, str] = None, **kwargs) -> bool:
+        exception_level = exception_level or self.default_exception_level
+        if not self._assert_connection(exception_level):
+            return False
+        if apply_format:
+            bucket_name = self.build_bucket_name(bucket_name)
+        try:
+            extra_args = {
+                'ACL': acl,
+                'ServerSideEncryption': encryption,
+                'Metadata': metadata or {}
+            }
+            resp = self._client.upload_file(
+                Filename=object_path,
+                Bucket=bucket_name,
+                Key=object_name or object_path,
+                ExtraArgs={**kwargs, **extra_args}
+            )
+            print(f'{resp=}')
+            return True
+        except aws_exceptions.ClientError as e:
+            if exception_level == ExceptionLevels.RAISE:
+                raise
+            if exception_level == ExceptionLevels.WARN:
+                warnings.warn(f"Clienterror: {e}!")
+
+        except Exception as e:
+            if exception_level == ExceptionLevels.RAISE:
+                raise
+            if exception_level == ExceptionLevels.WARN:
+                warnings.warn(f"An unknown exception occurred. The error is:\n{e}")
+        return False
