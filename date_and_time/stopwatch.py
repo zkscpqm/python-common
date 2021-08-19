@@ -85,7 +85,7 @@ class Stopwatch:
         self.is_running = True
 
     def stop(self) -> Split:
-        last_split = self.split()
+        last_split = self.split(force=True)
         self.is_running = False
         self.end_time = last_split.taken_at
         return last_split

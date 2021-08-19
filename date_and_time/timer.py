@@ -64,7 +64,7 @@ class _TimerThread(Thread):
         self.join(timeout)
 
 
-class Timer:
+class Timer:  # API incomplete, don't use yet
 
     def __init__(self, timeout: Number_t, *, repetitions: int = 1, callbacks: Iterable[Function] = (),
                  callback_args: tuple = (), callback_kwargs: dict = None) -> void:

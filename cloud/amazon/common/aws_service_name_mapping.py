@@ -3,6 +3,9 @@ from types_extensions import safe_type
 
 
 class AWSServiceNameMapping(metaclass=FinalConfigMeta):
+    """
+    Makes one wonder, did I write all those out by hand? :thonking:
+    """
 
     ACCESSANALYZER: safe_type(str) = 'accessanalyzer'
     ACM: safe_type(str) = 'acm'

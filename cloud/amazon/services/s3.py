@@ -3,6 +3,7 @@ import warnings
 from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException
+from meta.config_meta import FinalConfigMeta
 from types_extensions import const, safe_type, void
 
 import boto3
@@ -15,9 +16,11 @@ from cloud.amazon.common.service_availability import ServiceAvailability
 class AmazonS3(BaseAmazonService):
 
     def __init__(self, profile: str = None, region: str = None, default_exception_level: int = None,
-                 delimiter: str = '', bucket_prefix: str = '', bucket_suffix: str = '') -> void:
+                 default_storage_class: str = None, delimiter: str = '', bucket_prefix: str = '',
+                 bucket_suffix: str = '') -> void:
         if profile:
             self._backend: boto3.Session = boto3.Session(profile_name=profile)
+        self.default_storage_class: str = default_storage_class or S3StorageClass.STANDARD
         self.default_exception_level: int = default_exception_level or ExceptionLevels.RAISE
         self.delimiter: str = delimiter
         self.prefix: str = bucket_prefix
@@ -37,6 +40,7 @@ class AmazonS3(BaseAmazonService):
         return bucket_name
 
     def check_service_availability(self) -> int:
+        # Not done, for now assumed S3 is up.
         status = ServiceAvailability.OFFLINE
         if 1 == 1:
             status |= ServiceAvailability.ONLINE
@@ -130,9 +134,11 @@ class AmazonS3(BaseAmazonService):
                 return {obj['Key']: obj for obj in bucket_objects}
 
     def put_object_in_bucket(self, bucket_name: str, object_path: str, apply_format: bool = True,
-                             object_name: str = None, exception_level: int = None, acl: str = 'private',
-                             encryption: str = 'aws:kms', metadata: dict[str, str] = None, **kwargs) -> bool:
+                             object_name: str = None, exception_level: int = None, storage_class: str = None,
+                             acl: str = 'private', encryption: str = 'aws:kms', metadata: dict[str, str] = None,
+                             **kwargs) -> bool:
         exception_level = exception_level or self.default_exception_level
+        storage_class = storage_class or self.default_storage_class
         if not self._assert_connection(exception_level):
             return False
         if apply_format:
@@ -140,6 +146,7 @@ class AmazonS3(BaseAmazonService):
         try:
             extra_args = {
                 'ACL': acl,
+                'StorageClass': storage_class,
                 'ServerSideEncryption': encryption,
                 'Metadata': metadata or {}
             }
@@ -163,3 +170,14 @@ class AmazonS3(BaseAmazonService):
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"An unknown exception occurred. The error is:\n{e}")
         return False
+
+
+class S3StorageClass(metaclass=FinalConfigMeta):
+    STANDARD: const(str) = 'STANDARD'
+    REDUCED_REDUNDANCY: const(str) = 'REDUCED_REDUNDANCY'
+    STANDARD_IA: const(str) = 'STANDARD_IA'
+    ONEZONE_IA: const(str) = 'ONEZONE_IA'
+    INTELLIGENT_TIERING: const(str) = 'INTELLIGENT_TIERING'
+    GLACIER: const(str) = 'GLACIER'
+    DEEP_ARCHIVE: const(str) = 'DEEP_ARCHIVE'
+    OUTPOSTS: const(str) = 'OUTPOSTS'

@@ -39,20 +39,20 @@ class HeapEntry(metaclass=ABCMeta):
 
 
 class MaxHeap:
+    """
+    Heap struct with a list backend. Expects entries subclassed from HeapEntry. Can be initialized with an existing
+    unsorted list or empty. Inserts/deletes auto-heapify.
+    """
 
     def __init__(self, data: list[HeapEntry] = None):
-        data = data or []
-        self.data: list[HeapEntry] = data
-        self.build_max_heap()
+        self.data: list[HeapEntry] = data or []
+        self.heapsort()
 
     @property
     def heap_size(self) -> int:
         return len(self.data)
 
-    def get_debug_data(self):
-        return [item.i for item in self.data]
-
-    def build_max_heap(self) -> void:
+    def heapsort(self) -> void:
         iterations = range(self.heap_size // 2 - 1, -1, -1)
         for i in iterations:
             self.max_heapify(i)
@@ -74,11 +74,11 @@ class MaxHeap:
 
     def insert(self, value: HeapEntry) -> void:
         self.data.insert(0, value)
-        self.build_max_heap()
+        self.heapsort()
 
     def pop(self) -> Number_t:
         v = self.data.pop(0)
-        self.build_max_heap()
+        self.heapsort()
         return v
 
     def peek(self) -> Number_t:
@@ -108,7 +108,7 @@ class MaxHeap:
 
     def __setitem__(self, key: int, value: HeapEntry) -> void:
         self.data[key] = value
-        self.build_max_heap()
+        self.heapsort()
 
     def __str__(self) -> str:
         return str(self.data)

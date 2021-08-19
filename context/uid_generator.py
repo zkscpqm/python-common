@@ -8,6 +8,8 @@ from types_extensions import void, const
 class UIDGenerator:
 
     _DEFAULT_CHARSET: str = "abcdefghijklmnopqrstuvwxyz1234567890"
+
+    # The key in the context table holding the set of registered UIDs
     CONTEXT_KEY: const(str) = "active_global_uids"
 
     def __init__(self, length: int = 8, charset: str | Iterable[str] = None) -> void:
@@ -16,6 +18,10 @@ class UIDGenerator:
         self.charset: str | Iterable[str] = charset or self._DEFAULT_CHARSET
 
     def new(self) -> str:
+        """
+        Generate a new UID and store it in the global context table
+        :return: The new UID
+        """
         with GlobalContextTable() as ctx:
             active_uids = ctx.get(self.CONTEXT_KEY)
             uid_set: set[str] = active_uids.get_current_data() if active_uids else set()
@@ -32,6 +38,9 @@ class UIDGenerator:
         return rv_
 
     def deregister(self, uid: str) -> void:
+        """
+        Deregister a UID, if such exists
+        """
         with GlobalContextTable() as ctx:
             active_uids = ctx.get(self.CONTEXT_KEY)
             if active_uids:
