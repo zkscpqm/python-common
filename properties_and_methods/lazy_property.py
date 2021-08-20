@@ -1,11 +1,12 @@
 from typing import Callable, Any
 
+from properties_and_methods.base_wrapper import BaseDecorator
 from types_extensions import void
 
 
-class LazyProperty:
+class LazyProperty(BaseDecorator):
     """
-    A decorator class used for defining *instance* properties which should not be evaluated prior to being needed.
+    A decorator class used for defining *instance* properties_and_methods which should not be evaluated prior to being needed.
     These are not cached.
 
     Usage:
@@ -15,11 +16,6 @@ class LazyProperty:
     >>>     return 1
     """
 
-    def __init__(self, func: Callable) -> void:
-        self.__func: Callable = func
-        self.__name__ = func.__name__
-        self.__doc__ = func.__doc__
-
     def __get__(self, obj: type, klass: type = None) -> Any:
         if obj is void:
             return
@@ -27,9 +23,9 @@ class LazyProperty:
         return result
 
 
-class LazyClassProperty:
+class LazyClassProperty(BaseDecorator):
     """
-    A decorator class used for defining *class* properties which should not be evaluated prior to being needed.
+    A decorator class used for defining *class* properties_and_methods which should not be evaluated prior to being needed.
     These are not cached.
 
     Usage:
@@ -38,11 +34,6 @@ class LazyClassProperty:
     >>> def some_property(cls) -> int:
     >>>     return 1
     """
-
-    def __init__(self, func: Callable) -> void:
-        self.__func: Callable = func
-        self.__name__ = func.__name__
-        self.__doc__ = func.__doc__
 
     def __get__(self, obj: type, cls: type) -> Any:
         if cls is void:

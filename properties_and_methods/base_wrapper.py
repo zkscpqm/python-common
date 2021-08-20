@@ -1,0 +1,9 @@
+from typing import Callable
+
+
+class BaseDecorator:
+    def __init__(self, wrapped: Callable):
+        self.__func    = wrapped
+        self.__name__ = wrapped.__name__
+        self.__doc__  = wrapped.__doc__
+        wrapped.__wrapped__ = self

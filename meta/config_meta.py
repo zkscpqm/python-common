@@ -13,7 +13,7 @@ except ImportError:
 
 class BasicConfigMeta(type):
     """
-    A configuration metaclass to be set on Config classes which can use either class properties or object properties.
+    A configuration metaclass to be set on Config classes which can use either class properties_and_methods or object properties_and_methods.
     When attempting to get a non-existent property from a class or instance which implements this as a metaclass,
     the multiple checks will be made in 4 rounds:
 

@@ -97,7 +97,7 @@ class Trie:
     Trie structure which is an unbalanced multi-branch tree of characters which make up words.
     Searching a trie for a word is O(k) where k is the length of the word being searched.
 
-    Individual nodes can be reached by either going over each dict one by one or by using properties
+    Individual nodes can be reached by either going over each dict one by one or by using properties_and_methods
     Eg: To get the node at the "i" in "hi" in Trie trie_ (assuming you know the h and i nodes exist):
     >>> i_node = trie_.heads.get('h').get('i')
     >>> i_node = trie_.h.i
@@ -114,7 +114,7 @@ class Trie:
 
     def __setattr__(self, key: str, value: Any) -> void:
         if len(key) == 1 and key in self.charset and not isinstance(value, _TrieNode):
-            # Setting single char properties is forbidden unless you're setting it to a node
+            # Setting single char properties_and_methods is forbidden unless you're setting it to a node
             raise ReservedAttributeException(key)
         super().__setattr__(key, value)
 
