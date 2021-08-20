@@ -58,8 +58,8 @@ class Stopwatch:
         self.end_time: safe_type(_dt) = None
         self.is_running: bool = False
         self._paused_at: safe_type(_dt) = None
-        self._paused_for_total: float = 0.
-        self._paused_for_this_split: float = 0.
+        self._paused_for_total: timedelta = timedelta()
+        self._paused_for_this_split: timedelta = timedelta()
         # List containing all splits in order. If stopped, the last split will always be the end_time.
         self.splits: list_type[Split] = []
 
@@ -79,8 +79,7 @@ class Stopwatch:
 
     def start(self, reset_stats: bool = True) -> void:
         if reset_stats:
-            self.end_time = None
-            self.splits = []
+            self.reset(stop=True)
         self.start_time = _dt.now()
         self.is_running = True
 
@@ -117,17 +116,17 @@ class Stopwatch:
                           since_start=(now_ - self.start_time) - self._paused_for_total,
                           since_last_split=(now_ - last_split_time) - self._paused_for_this_split)
         self.splits.append(new_split)
-        self._paused_for_this_split = 0.
+        self._paused_for_this_split = timedelta()
         return new_split
 
     def reset(self, stop: bool = False) -> void:
-        if stop:
+        if stop and self.is_running:
             self.stop()
         self.start_time = _dt.now() if self.is_running else void
         self.splits = []
         self.end_time = None
-        self._paused_for_total = 0.
-        self._paused_for_this_split = 0.
+        self._paused_for_total = timedelta()
+        self._paused_for_this_split = timedelta()
         self._paused_at = None
 
     def __str__(self) -> str:

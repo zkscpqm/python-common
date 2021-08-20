@@ -214,7 +214,7 @@ class Trie:
             node = getattr(node, letter, void)
             if not node:
                 return False
-        return node.complete
+        return getattr(node, 'complete', False)
 
 
 def iterable_to_set(charset: Iterable[str]) -> set[str]:
