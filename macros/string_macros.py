@@ -1,6 +1,7 @@
+from types_extensions import tuple_type
 
 
-def split_string(str_: str, index: int) -> tuple[str, str]:
+def split_string(str_: str, index: int) -> tuple_type[str, str]:
     """
     Takes a string and returns a tuple of the string, split at the index given
     """

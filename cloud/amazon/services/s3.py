@@ -4,7 +4,7 @@ from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException
 from meta.config_meta import FinalConfigMeta
-from types_extensions import const, safe_type, void
+from types_extensions import const, safe_type, void, list_type, dict_type
 
 import boto3
 
@@ -61,7 +61,7 @@ class AmazonS3(BaseAmazonService):
             return False
         return True
 
-    def get_buckets(self, exception_level: int = None) -> list[str]:
+    def get_buckets(self, exception_level: int = None) -> list_type[str]:
         if not self._assert_connection(exception_level):
             return []
         aws_resp = self._client.list_buckets()
@@ -135,7 +135,7 @@ class AmazonS3(BaseAmazonService):
 
     def put_object_in_bucket(self, bucket_name: str, object_path: str, apply_format: bool = True,
                              object_name: str = None, exception_level: int = None, storage_class: str = None,
-                             acl: str = 'private', encryption: str = 'aws:kms', metadata: dict[str, str] = None,
+                             acl: str = 'private', encryption: str = 'aws:kms', metadata: dict_type[str, str] = None,
                              **kwargs) -> bool:
         exception_level = exception_level or self.default_exception_level
         storage_class = storage_class or self.default_storage_class
@@ -156,7 +156,6 @@ class AmazonS3(BaseAmazonService):
                 Key=object_name or object_path,
                 ExtraArgs={**kwargs, **extra_args}
             )
-            print(f'{resp=}')
             return True
         except aws_exceptions.ClientError as e:
             if exception_level == ExceptionLevels.RAISE:

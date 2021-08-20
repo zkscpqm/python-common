@@ -3,13 +3,13 @@ from datetime import datetime as _dt
 from typing import Iterable
 from threading import Thread
 
-from types_extensions import Number_t, safe_type, Function, void
+from types_extensions import Number_t, safe_type, Function, void, dict_type, tuple_type
 
 
 class _TimerThread(Thread):
 
     def __init__(self, timeout: Number_t, *, repetitions: int, callbacks: Iterable[Function],
-                 callback_args: tuple, callback_kwargs: dict, name: str = None) -> void:
+                 callback_args: tuple_type, callback_kwargs: dict_type, name: str = None) -> void:
         Thread.__init__(self, name=name)
         self.timeout: Number_t = timeout
         self.repetitions: int = repetitions
@@ -18,8 +18,8 @@ class _TimerThread(Thread):
         self.elapsed: float = 0.
         self.started_at: safe_type(_dt) = None
         self._callbacks: Iterable[Function] = callbacks
-        self._callback_args: tuple = callback_args
-        self._callback_kwargs: dict = callback_kwargs
+        self._callback_args: tuple_type = callback_args
+        self._callback_kwargs: dict_type = callback_kwargs
 
     def stop(self) -> void:
         self.stopped = True
@@ -67,7 +67,7 @@ class _TimerThread(Thread):
 class Timer:  # API incomplete, don't use yet
 
     def __init__(self, timeout: Number_t, *, repetitions: int = 1, callbacks: Iterable[Function] = (),
-                 callback_args: tuple = (), callback_kwargs: dict = None) -> void:
+                 callback_args: tuple_type = (), callback_kwargs: dict_type = None) -> void:
         self.is_running: bool = False
         self._thread: _TimerThread = self._create_thread(timeout,
                                                          repetitions=repetitions,
@@ -77,7 +77,7 @@ class Timer:  # API incomplete, don't use yet
 
     @staticmethod
     def _create_thread(timeout: Number_t, repetitions: int, callbacks: Iterable[Function],
-                       callback_args: tuple, callback_kwargs: dict) -> _TimerThread:
+                       callback_args: tuple_type, callback_kwargs: dict_type) -> _TimerThread:
         return _TimerThread(timeout, repetitions=repetitions, callbacks=callbacks,
                             callback_args=callback_args, callback_kwargs=callback_kwargs)
 

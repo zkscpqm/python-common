@@ -1,4 +1,4 @@
-from typing import Callable, Any
+from typing import Any
 
 from properties_and_methods.base_wrapper import BaseDecorator
 from types_extensions import void
@@ -25,7 +25,8 @@ class LazyProperty(BaseDecorator):
 
 class LazyClassProperty(BaseDecorator):
     """
-    A decorator class used for defining *class* properties_and_methods which should not be evaluated prior to being needed.
+    A decorator class used for defining *class* properties_and_methods which should not be evaluated prior to
+    being needed.
     These are not cached.
 
     Usage:

@@ -1,7 +1,9 @@
 import functools
 from typing import Iterable, Any
 
-from types_extensions import void, const
+from types_extensions import void, const, _assert_py_version, PythonVersion
+
+_assert_py_version(PythonVersion(3, 10))
 
 
 class _TrieNode:

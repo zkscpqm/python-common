@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Iterable, Union
 
-from types_extensions import void, Number_t
+from types_extensions import void, Number_t, safe_type, list_type, tuple_type
 
 
 class HeapEntry(metaclass=ABCMeta):
@@ -10,7 +10,7 @@ class HeapEntry(metaclass=ABCMeta):
     def __init__(self, i: Number_t) -> void:
         self.i: Number_t = i
 
-    def _iter_filtered_members(self) -> Iterable[tuple[str, str]]:
+    def _iter_filtered_members(self) -> Iterable[tuple_type[str, str]]:
         ignored_members = {'_iter_filtered_members', 'i'}
         for k, v in self.__dict__.items():
             if not (k.startswith('__') and k.endswith('__')) and k not in ignored_members:
@@ -44,8 +44,8 @@ class MaxHeap:
     unsorted list or empty. Inserts/deletes auto-heapify.
     """
 
-    def __init__(self, data: list[HeapEntry] = None):
-        self.data: list[HeapEntry] = data or []
+    def __init__(self, data: list_type[HeapEntry] = None):
+        self.data: list_type[HeapEntry] = data or []
         self.heapsort()
 
     @property
@@ -76,12 +76,12 @@ class MaxHeap:
         self.data.insert(0, value)
         self.heapsort()
 
-    def pop(self) -> Number_t:
+    def pop(self) -> HeapEntry:
         v = self.data.pop(0)
         self.heapsort()
         return v
 
-    def peek(self) -> Number_t:
+    def peek(self) -> safe_type(HeapEntry):
         if self.heap_size > 0:
             return self.data[0]
         return

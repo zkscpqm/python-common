@@ -1,6 +1,6 @@
 from typing import Iterable, Any
 
-from types_extensions import void
+from types_extensions import void, tuple_type, dict_type, list_type
 
 
 class DynamicClassFactory:
@@ -13,7 +13,7 @@ class DynamicClassFactory:
     """
 
     def __init__(self, default_base_classes: Iterable[type] = (), prefix: str = '', suffix: str = '',
-                 members: dict[str, Any] = None) -> void:
+                 members: dict_type[str, Any] = None) -> void:
         """
         :param default_base_classes: A collection of base classes to be inherited-from by any classes built by this
         :param prefix: A global prefix to be tagged onto the name of any classes built by this
@@ -22,11 +22,11 @@ class DynamicClassFactory:
         """
         self.prefix: str = prefix
         self.suffix: str = suffix
-        self.mixins: list[type] = [x for x in default_base_classes]
-        self.members: dict[str, Any] = members or {}
+        self.mixins: list_type[type] = [x for x in default_base_classes]
+        self.members: dict_type[str, Any] = members or {}
 
     def build(self, class_name: str, extra_mixins: Iterable[type] = (),
-              members: dict[str, Any] = None) -> type:
+              members: dict_type[str, Any] = None) -> type:
         """
 
         :param class_name: What sits in between the configured prefix and suffix
@@ -41,7 +41,7 @@ class DynamicClassFactory:
             {**self.members, **(members or {})}
         )
 
-    def _create_bases(self, extra_base_classes: Iterable[type]) -> tuple[type]:
+    def _create_bases(self, extra_base_classes: Iterable[type]) -> tuple_type[type]:
         """
         This shit is necessary because type() *needs* a tuple instead of a list or any other ordered collection
         """

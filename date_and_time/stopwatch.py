@@ -2,7 +2,7 @@ from datetime import datetime as _dt, timedelta
 from random import randrange
 import warnings
 
-from types_extensions import void, safe_type, const
+from types_extensions import void, safe_type, const, list_type
 
 
 class Split:
@@ -61,7 +61,7 @@ class Stopwatch:
         self._paused_for_total: float = 0.
         self._paused_for_this_split: float = 0.
         # List containing all splits in order. If stopped, the last split will always be the end_time.
-        self.splits: list[Split] = []
+        self.splits: list_type[Split] = []
 
     @property
     def elapsed(self) -> timedelta:

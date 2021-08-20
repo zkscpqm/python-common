@@ -6,7 +6,8 @@ from types_extensions import void
 
 class CachedProperty(BaseDecorator):
     """
-    A decorator class used for defining *instance* properties_and_methods which should not be evaluated prior to being needed.
+    A decorator class used for defining *instance* properties_and_methods which should not be evaluated prior to being
+    needed.
     These are not cached.
 
     Usage:

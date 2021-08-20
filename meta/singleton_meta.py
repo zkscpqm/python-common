@@ -1,3 +1,5 @@
+from types_extensions import dict_type
+
 
 class SingletonMeta(type):
     """
@@ -27,7 +29,7 @@ class SingletonMeta(type):
 
     """
 
-    _instances: dict[str, object] = {}
+    _instances: dict_type[str, object] = {}
 
     def __call__(cls, *args, **kwargs) -> object:
         if cls.__name__ not in cls._instances:
@@ -72,7 +74,7 @@ class ThreadLocalSingletonMeta(type):
 
     def __call__(cls, *args, **kwargs) -> object:
         if not locals().get(cls._locals_key):
-            locals()[cls._locals_key]: dict[str, object] = {}
+            locals()[cls._locals_key]: dict_type[str, object] = {}
         if cls.__name__ not in locals()[cls._locals_key]:
             locals()[cls._locals_key][cls.__name__] = super(ThreadLocalSingletonMeta, cls).__call__(*args, **kwargs)
         return locals()[cls._locals_key][cls.__name__]
