@@ -21,3 +21,7 @@ class InvalidArgumentException(Exception):
         msg = f"Invalid argument ({self.given_argument}) of type ({self.given_argument_type}) given." \
               f"The allowed arguments are {', '.join((f'({x}) of type ({y})' for x, y in self.allowed_arguments))}"
         return msg
+
+
+class BucketNotEmptyException(Exception):
+    ...

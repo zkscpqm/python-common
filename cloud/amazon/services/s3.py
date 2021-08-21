@@ -1,5 +1,6 @@
 import warnings
 
+import botocore.exceptions
 from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException
@@ -21,7 +22,9 @@ class AmazonS3(BaseAmazonService):
         if profile:
             self._backend: boto3.Session = boto3.Session(profile_name=profile)
         self.default_storage_class: str = default_storage_class or S3StorageClass.STANDARD
-        self.default_exception_level: int = default_exception_level or ExceptionLevels.RAISE
+
+        if default_exception_level:
+            self.default_exception_level = default_exception_level
         self.delimiter: str = delimiter
         self.prefix: str = bucket_prefix
         self.suffix: str = bucket_suffix
@@ -48,33 +51,20 @@ class AmazonS3(BaseAmazonService):
             status |= ServiceAvailability.CONNECTED
         return status
 
-    def is_connected(self) -> bool:
-        return (self.check_service_availability() & ServiceAvailability.CONNECTED) == ServiceAvailability.CONNECTED
-
-    def _assert_connection(self, exception_level: int = None) -> bool:
-        exception_level = exception_level or self.default_exception_level
-        if not self.is_connected():
-            if exception_level == ExceptionLevels.RAISE:
-                raise aws_exceptions.ConnectionError
-            if exception_level == ExceptionLevels.WARN:
-                warnings.warn(f"Could not connect to s3. Please check your connection and try again.")
-            return False
-        return True
-
     def get_buckets(self, exception_level: int = None) -> list_type[str]:
         if not self._assert_connection(exception_level):
             return []
         aws_resp = self._client.list_buckets()
         return [bucket_name['Name'] for bucket_name in aws_resp['Buckets']]
 
-    def create_bucket(self, bucket_name: str, apply_format: bool = True,
+    def create_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
                       acl: str = 'private', region: str = None, lock_enabled: bool = False,
                       exception_level: int = None, **kwargs) -> safe_type(str):
         exception_level = exception_level or self.default_exception_level
         if not self._assert_connection(exception_level):
             return None
         region = region or self.region
-        if apply_format:
+        if apply_format_to_bucket:
             bucket_name = self.build_bucket_name(bucket_name)
         try:
             aws_resp = self._client.create_bucket(
@@ -114,7 +104,36 @@ class AmazonS3(BaseAmazonService):
                 warnings.warn(f"An unknown exception occurred. The bucket {kw_} created. The error is:\n{e}")
             return rv
 
-    def get_objects_in_bucket(self, bucket_name: str, apply_format: bool = True,
+    def delete_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True, force_delete_contents: bool = False,
+                      exception_level: int = None, **kwargs) -> void:
+        exception_level = exception_level or self.default_exception_level
+        if not self._assert_connection(exception_level):
+            return None
+        if apply_format_to_bucket:
+            bucket_name = self.build_bucket_name(bucket_name)
+        if force_delete_contents:
+            contents = self.get_objects_in_bucket(bucket_name,
+                                                  apply_format_to_bucket=False,
+                                                  exception_level=exception_level
+                                                  )
+            if contents:
+                self.delete_objects_from_bucket(bucket_name,
+                                                objects=[val for val in contents.values()],
+                                                full_delete=True,
+                                                apply_format_to_bucket=False,
+                                                exception_level=exception_level)
+        try:
+            self._client.delete_bucket(Bucket=bucket_name, **kwargs)
+        except botocore.exceptions.ClientError as e:
+            if exception_level == ExceptionLevels.RAISE:
+                raise
+            e = str(e)
+            if 'AccessDenied' in e:
+                if exception_level == ExceptionLevels.WARN:
+                    warnings.warn(f"An access-denied error was encountered while deleting bucket {bucket_name}.\n"
+                                  f"You might not have permissions to delete it, or it doesn't exist.\nError:\n{e}")
+
+    def get_objects_in_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
                               exception_level: int = None, mode: str = 'mapping') -> dict:
         _allowed_modes = {'raw', 'mapping'}
         exception_level = exception_level or self.default_exception_level
@@ -122,7 +141,7 @@ class AmazonS3(BaseAmazonService):
             raise InvalidArgumentException(mode, _allowed_modes)
         if not self._assert_connection(exception_level):
             return {}
-        if apply_format:
+        if apply_format_to_bucket:
             bucket_name = self.build_bucket_name(bucket_name)
         bucket_objects = self._client.list_objects(Bucket=bucket_name)['Contents']
         match mode:
@@ -133,7 +152,7 @@ class AmazonS3(BaseAmazonService):
             case x if x == 'mapping':
                 return {obj['Key']: obj for obj in bucket_objects}
 
-    def put_object_in_bucket(self, bucket_name: str, object_path: str, apply_format: bool = True,
+    def put_object_in_bucket(self, bucket_name: str, object_path: str, apply_format_to_bucket: bool = True,
                              object_name: str = None, exception_level: int = None, storage_class: str = None,
                              acl: str = 'private', encryption: str = 'aws:kms', metadata: dict_type[str, str] = None,
                              **kwargs) -> bool:
@@ -141,7 +160,7 @@ class AmazonS3(BaseAmazonService):
         storage_class = storage_class or self.default_storage_class
         if not self._assert_connection(exception_level):
             return False
-        if apply_format:
+        if apply_format_to_bucket:
             bucket_name = self.build_bucket_name(bucket_name)
         try:
             extra_args = {
@@ -150,7 +169,7 @@ class AmazonS3(BaseAmazonService):
                 'ServerSideEncryption': encryption,
                 'Metadata': metadata or {}
             }
-            resp = self._client.upload_file(
+            self._client.upload_file(
                 Filename=object_path,
                 Bucket=bucket_name,
                 Key=object_name or object_path,
@@ -170,6 +189,23 @@ class AmazonS3(BaseAmazonService):
                 warnings.warn(f"An unknown exception occurred. The error is:\n{e}")
         return False
 
+    def delete_object_from_bucket(self, bucket_name: str, object_name: str, full_delete: bool = False,
+                                  apply_format_to_bucket: bool = True, exception_level: int = None) -> void:
+        exception_level = exception_level or self.default_exception_level
+        if not self._assert_connection(exception_level):
+            return False
+        if apply_format_to_bucket:
+            bucket_name = self.build_bucket_name(bucket_name)
+
+    def delete_objects_from_bucket(self, bucket_name: str, objects: list_type[dict_type[str, str]],
+                                   full_delete: bool = False, apply_format_to_bucket: bool = True,
+                                   exception_level: int = None) -> void:
+        exception_level = exception_level or self.default_exception_level
+        if not self._assert_connection(exception_level):
+            return False
+        if apply_format_to_bucket:
+            bucket_name = self.build_bucket_name(bucket_name)
+        
 
 class S3StorageClass(metaclass=FinalConfigMeta):
     STANDARD: const(str) = 'STANDARD'
