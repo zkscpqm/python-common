@@ -56,3 +56,10 @@ class AmazonS3Bucket(BaseSGI):
             **self._build_default_params(kwargs),
             object_name=object_name
         )
+
+    def download_object(self, object_name: str, destination: str, **kwargs) -> void:
+        return self.parent.download_object_from_bucket(
+            **self._build_default_params(kwargs),
+            object_name=object_name,
+            destination=destination
+        )

@@ -1,3 +1,4 @@
+import os
 import warnings
 
 import botocore.exceptions
@@ -332,3 +333,35 @@ class AmazonS3(BaseAmazonService):
                 warnings.warn(f"An unknown exception occurred while trying to{permanently} bulk:\n"
                               f"Delete {object_names}\nFrom {bucket_name}.\nThe error is:\n{e}")
 
+    def download_object_from_bucket(self, bucket_name: str, object_name: str, destination: str,
+                                    apply_format_to_bucket: bool = True, exception_level: int = None,
+                                    **kwargs) -> void:
+
+        ok, _, bucket_name = self._setup(exception_level=exception_level,
+                                         root_name=bucket_name,
+                                         build_full_name=apply_format_to_bucket)
+        if not ok:
+            return
+
+        path_to, _ = os.path.split(destination)
+        if not os.path.isdir(path_to):
+            os.makedirs(path_to, exist_ok=True)
+        buffer = open(destination, 'wb')
+
+        try:
+            self._client.download_fileobj(
+                Bucket=bucket_name,
+                Key=object_name,
+                Fileobj=buffer,
+                **kwargs
+            )
+
+        except Exception as e:
+            if exception_level == ExceptionLevels.RAISE:
+                raise
+            if exception_level == ExceptionLevels.WARN:
+                warnings.warn(f"An unknown exception occurred while trying to:\n"
+                              f"Download {object_name}\nFrom {bucket_name}\nTo {buffer}\nThe error is:\n{e}")
+        finally:
+            if buffer:
+                buffer.close()
