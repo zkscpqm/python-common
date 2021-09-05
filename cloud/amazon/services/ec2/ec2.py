@@ -33,10 +33,3 @@ class AmazonEC2(BaseAmazonService):
     @property
     def name(self) -> str:
         return AWSServiceNameMapping.EC2
-
-    def build_instance_name(self, instance_name: str) -> str:
-        if self.prefix:
-            instance_name = f'{self.prefix}{self.delimiter}{instance_name}'
-        if self.suffix:
-            instance_name = f'{instance_name}{self.delimiter}{self.suffix}'
-        return instance_name
