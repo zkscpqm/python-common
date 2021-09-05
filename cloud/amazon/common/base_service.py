@@ -1,3 +1,7 @@
+from version_checking import _assert_py_version, PythonVersion
+
+_assert_py_version(PythonVersion(3, 9))
+
 import abc
 import warnings
 

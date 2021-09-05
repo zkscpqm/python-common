@@ -1,7 +1,7 @@
 import functools
 from typing import Iterable, Any
 
-from types_extensions import void, const, _assert_py_version, PythonVersion
+from types_extensions import void, const, _assert_py_version, PythonVersion, list_type
 
 _assert_py_version(PythonVersion(3, 10))
 
@@ -56,7 +56,7 @@ class _TrieNode:
             self.size -= 1
             self.complete = False
 
-    def search(self, word: str, index: int) -> list[str]:
+    def search(self, word: str, index: int) -> list_type[str]:
         rv = []
         if len(word) <= index + 1:
             if self.complete:
@@ -147,7 +147,7 @@ class Trie:
         self.size += 1
 
     @functools.cache
-    def search(self, word: str, insert_if_missing: bool = False, max_results: int = None) -> list[str]:
+    def search(self, word: str, insert_if_missing: bool = False, max_results: int = None) -> list_type[str]:
         """
         Looks for a word (complete or partly complete). It will return a list of the word (if it exists and is
         complete), as well as ALL downstream results if max_results isn't set. For now, results are ordered in the

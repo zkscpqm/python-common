@@ -1,7 +1,3 @@
-from version_checking import PythonVersion, _assert_py_version
-
-_assert_py_version(PythonVersion(3, 9))
-
 import warnings
 
 import botocore.exceptions
@@ -15,7 +11,8 @@ import boto3
 from cloud.amazon.common.aws_service_name_mapping import AWSServiceNameMapping
 from cloud.amazon.common.base_service import BaseAmazonService, BaseClient
 from cloud.amazon.common.service_availability import ServiceAvailability
-from cloud.amazon.services.s3.storage_class import S3StorageClass
+from cloud.amazon.services.s3._storage_class import S3StorageClass
+from cloud.amazon.services.s3._bucket import AmazonS3Bucket
 
 
 class AmazonS3(BaseAmazonService):
@@ -60,6 +57,21 @@ class AmazonS3(BaseAmazonService):
                 raise
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"An unknown exception occurred while trying to list buckets:\nThe error is:\n{e}")
+
+    def spawn_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
+                     exception_level: int = None) -> safe_type(AmazonS3Bucket):
+        exception_level = exception_level or self.default_exception_level
+        ok, region, bucket_name = self._setup(exception_level=exception_level,
+                                              root_name=bucket_name,
+                                              build_full_name=apply_format_to_bucket)
+        if not ok:
+            return None
+
+        return AmazonS3Bucket(
+            bucket_name=bucket_name,
+            parent=self,
+            exception_level=exception_level
+        )
 
     def create_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
                       acl: str = 'private', region: str = None, lock_enabled: bool = False,
@@ -124,8 +136,8 @@ class AmazonS3(BaseAmazonService):
                                                   )
             if contents:
                 self.delete_objects_from_bucket(bucket_name,
-                                                objects=[val for val in contents.values()],
-                                                full_delete=True,
+                                                object_names=[val for val in contents.values()],
+                                                permanently=True,
                                                 apply_format_to_bucket=False,
                                                 exception_level=exception_level)
         try:
@@ -147,7 +159,7 @@ class AmazonS3(BaseAmazonService):
                               f"Delete {bucket_name}\nThe error is:\n{e}")
 
     def get_objects_in_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
-                              exception_level: int = None, mode: str = 'mapping') -> dict:
+                              exception_level: int = None, mode: str = 'mapping', **kwargs) -> dict:
         _allowed_modes = {'raw', 'mapping'}
         exception_level = exception_level or self.default_exception_level
         if mode not in _allowed_modes:
@@ -158,7 +170,7 @@ class AmazonS3(BaseAmazonService):
         if not ok:
             return {}
         try:
-            if (bucket_objects := self._client.list_objects(Bucket=bucket_name)).get('Contents'):
+            if (bucket_objects := self._client.list_objects(Bucket=bucket_name, **kwargs)).get('Contents'):
                 match mode:
 
                     case x if x == 'raw':
@@ -171,7 +183,7 @@ class AmazonS3(BaseAmazonService):
             if exception_level == ExceptionLevels.RAISE:
                 raise
             if exception_level == ExceptionLevels.WARN:
-                warnings.warn(f"An unknown exception occurred while trying to get objects:\n"
+                warnings.warn(f"An unknown exception occurred while trying to get object_names:\n"
                               f"From {bucket_name}.\nThe error is:\n{e}")
         return {}
 
@@ -216,7 +228,8 @@ class AmazonS3(BaseAmazonService):
                               f"The error is:\n{e}")
         return False
 
-    def get_all_object_versions(self, bucket_name: str, object_name: str, apply_format_to_bucket: bool = True,
+    def get_all_object_versions(self, bucket_name: str, object_name: str, match_exact: bool = True,
+                                apply_format_to_bucket: bool = True,
                                 exception_level: int = None, **kwargs) -> list_type[dict_type[str, str]]:
         rv = []
         ok, _, bucket_name = self._setup(exception_level=exception_level,
@@ -231,9 +244,11 @@ class AmazonS3(BaseAmazonService):
                 **kwargs
             )
             for version in resp.get("Versions", []) + resp.get("DeleteMarkers", []):
-                if (key := version.get("Key")) == object_name:
-                    rv.append({"Key": key,
-                               "VersionId": version.get("VersionId")})
+                key = version.get("Key")
+                if match_exact and key != object_name:
+                    continue
+                rv.append({"Key": key,
+                           "VersionId": version.get("VersionId")})
         except Exception as e:
             if exception_level == ExceptionLevels.RAISE:
                 raise
@@ -242,14 +257,14 @@ class AmazonS3(BaseAmazonService):
                               f"For {object_name}\nIn {bucket_name}.\nThe error is:\n{e}")
         return rv
 
-    def delete_object_from_bucket(self, bucket_name: str, object_name: str, full_delete: bool = False,
+    def delete_object_from_bucket(self, bucket_name: str, object_name: str, permanently: bool = False,
                                   apply_format_to_bucket: bool = True, exception_level: int = None, **kwargs) -> void:
         exception_level = exception_level or self.default_exception_level
         ok, _, bucket_name = self._setup(exception_level=exception_level,
                                          root_name=bucket_name,
                                          build_full_name=apply_format_to_bucket)
         try:
-            if full_delete:
+            if permanently:
                 all_versions = self.get_all_object_versions(bucket_name, object_name,
                                                             apply_format_to_bucket=False,
                                                             exception_level=exception_level,
@@ -273,12 +288,12 @@ class AmazonS3(BaseAmazonService):
             if exception_level == ExceptionLevels.RAISE:
                 raise
             if exception_level == ExceptionLevels.WARN:
-                permanently = " permanently" if full_delete else ""
+                permanently = " permanently" if permanently else ""
                 warnings.warn(f"An unknown exception occurred while trying to{permanently}:\n"
                               f"Delete {object_name}\nFrom {bucket_name}.\nThe error is:\n{e}")
 
-    def delete_objects_from_bucket(self, bucket_name: str, objects: list_type[str],
-                                   full_delete: bool = False, apply_format_to_bucket: bool = True,
+    def delete_objects_from_bucket(self, bucket_name: str, object_names: list_type[str],
+                                   permanently: bool = False, apply_format_to_bucket: bool = True,
                                    exception_level: int = None, **kwargs) -> void:
         exception_level = exception_level or self.default_exception_level
         ok, _, bucket_name = self._setup(exception_level=exception_level,
@@ -288,8 +303,8 @@ class AmazonS3(BaseAmazonService):
             return
         try:
             objects_to_delete = []
-            for object_name in objects:
-                if full_delete:
+            for object_name in object_names:
+                if permanently:
                     all_versions = self.get_all_object_versions(
                         bucket_name=bucket_name,
                         object_name=object_name,
@@ -300,19 +315,20 @@ class AmazonS3(BaseAmazonService):
                     objects_to_delete.extend(all_versions)
                 else:
                     objects_to_delete.append({"Key": object_name})
-            self._client.delete_objects(
-                Bucket=bucket_name,
-                Delete={
-                    'Objects': objects_to_delete,
-                    'Quiet': True
-                },
-                **kwargs
-            )
+            if len(objects_to_delete) > 0:
+                self._client.delete_objects(
+                    Bucket=bucket_name,
+                    Delete={
+                        'Objects': objects_to_delete,
+                        'Quiet': True
+                    },
+                    **kwargs
+                )
         except Exception as e:
             if exception_level == ExceptionLevels.RAISE:
                 raise
             if exception_level == ExceptionLevels.WARN:
-                permanently = " permanently" if full_delete else ""
+                permanently = " permanently" if permanently else ""
                 warnings.warn(f"An unknown exception occurred while trying to{permanently} bulk:\n"
-                              f"Delete {objects}\nFrom {bucket_name}.\nThe error is:\n{e}")
+                              f"Delete {object_names}\nFrom {bucket_name}.\nThe error is:\n{e}")
 
