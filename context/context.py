@@ -54,7 +54,7 @@ class _ContextEntry:
         return self._data
 
 
-class ContextTable(metaclass=abc.ABCMeta):
+class ContextTable:
     """
     Base class for context tables. Don't use this directly. Use GlobalContextTable or ThreadLocalContextTable
     depending on the use case
