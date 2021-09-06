@@ -19,7 +19,7 @@ class LazyProperty(BaseDecorator):
     def __get__(self, obj: type, klass: type = None) -> Any:
         if obj is void:
             return
-        result = obj.__dict__[self.__name__] = self.__func(obj)
+        result = obj.__dict__[self.__name__] = self._func(obj)
         return result
 
 
@@ -39,6 +39,6 @@ class LazyClassProperty(BaseDecorator):
     def __get__(self, obj: type, cls: type) -> Any:
         if cls is void:
             return
-        result = self.__func(cls)
+        result = self._func(cls)
         setattr(cls, self.__name__, result)
         return result
