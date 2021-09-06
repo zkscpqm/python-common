@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from io_extensions.file_extensions import FileExtensions
+from io_extensions.file_rw import safe_fwrite
 from types_extensions import void, primitives, single_value_iterables, is_of_type, Method, list_type, dict_type
 
 
@@ -88,17 +89,20 @@ class ObjectSerializer:
             return
 
     def serialize(self, obj: Any, format_: str = None,  include_magic_members: bool = False,
-                  include_methods: bool = True, **serializer_kwargs) -> str:
+                  include_methods: bool = True, destination_fp: str = None,  **serializer_kwargs) -> str:
         format_ = format_ or self.default_serialization
         as_dict = self.to_dict(obj, include_magic_members, include_methods, file_safe=True)
-        return self._serialize(as_dict, format_, **serializer_kwargs)
+        rv = self._serialize(as_dict, format_, **serializer_kwargs)
+        if destination_fp:
+            safe_fwrite(destination_fp, mode='w+', payload=rv)
+        return rv
 
     @staticmethod
     def _serialize(obj_dict: dict[str: Any], format_: str, **serializer_kwargs) -> str:
 
         match format_:
             case fmt if fmt == FileExtensions.JSON:
-                return json.dumps(obj_dict, **serializer_kwargs)
+                return json.dumps(obj_dict, indent=4, **serializer_kwargs)
             case fmt if fmt == FileExtensions.YAML:
                 import yaml
                 return yaml.safe_dump(obj_dict, **serializer_kwargs)
