@@ -1,1 +1,1 @@
-from .ec2 import AmazonEC2
+from ._ec2 import AmazonEC2

@@ -11,7 +11,7 @@ from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.exception_handling import ExceptionLevels
 from cloud.amazon.common.service_availability import ServiceAvailability
-from types_extensions import tuple_type
+from types_extensions import tuple_type, safe_type, void
 
 
 class BaseAmazonService(abc.ABC):
@@ -19,11 +19,21 @@ class BaseAmazonService(abc.ABC):
     _backend:  boto3.Session = boto3.Session()
     _client: BaseClient
     default_exception_level: int = ExceptionLevels.RAISE
-    region: str = _backend.region_name
+
+    def __init__(self, profile: str = None, region: str = None, default_exception_level: int = None) -> void:
+
+        self._spawn_session(profile, region)
+
+        if default_exception_level:
+            self.default_exception_level = default_exception_level
 
     @abc.abstractmethod
     def check_service_availability(self) -> int:
         raise NotImplementedError
+
+    @property
+    def region(self) -> str:
+        return self._backend.region_name
 
     @property
     @abc.abstractmethod
@@ -45,6 +55,15 @@ class BaseAmazonService(abc.ABC):
             hasattr(self, 'delimiter') and
             hasattr(self, 'suffix')
         )
+
+    def _spawn_session(self, profile_name: str, region_name: str) -> void:
+        session_kwargs = {}
+        if profile_name:
+            session_kwargs['profile_name'] = profile_name
+        if region_name:
+            session_kwargs['region_name'] = region_name
+        if len(session_kwargs) > 0:
+            self._backend = boto3.Session(**session_kwargs)
 
     def is_connected(self) -> bool:
         return (self.check_service_availability() & ServiceAvailability.CONNECTED) == ServiceAvailability.CONNECTED

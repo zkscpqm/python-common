@@ -12,13 +12,13 @@ class AmazonEC2(BaseAmazonService):
 
     def __init__(self, profile: str = None, region: str = None, default_exception_level: int = None,
                  delimiter: str = '', instance_name_prefix: str = '', instance_name_suffix: str = '') -> void:
-        if profile:
-            self._backend: boto3.Session = boto3.Session(profile_name=profile)
+
+        super().__init__(profile, region, default_exception_level)
+
         self.prefix: str = instance_name_prefix
         self.suffix: str = instance_name_suffix
         self.delimiter: str = delimiter
-        self.default_exception_level: int = default_exception_level or ExceptionLevels.RAISE
-        self.region: str = region or self._backend.region_name
+
         self._client: const(BaseClient) = self._backend.client(AWSServiceNameMapping.EC2, region_name=region)
 
     def check_service_availability(self) -> int:
