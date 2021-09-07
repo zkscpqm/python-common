@@ -23,5 +23,16 @@ class InvalidArgumentException(Exception):
         return msg
 
 
+class MissingParametersException(Exception):
+
+    def __init__(self, msg: str = None, parameter_names: list_type[str] = None) -> void:
+        self.msg = msg or 'Some parameters were missing.'
+        self.parameter_names = parameter_names or ['not given']
+
+    def __str__(self) -> str:
+        msg = f"{self.msg}\nMissing params: {', '.join(self.parameter_names)}"
+        return msg
+
+
 class BucketNotEmptyException(Exception):
     ...
