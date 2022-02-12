@@ -2,11 +2,12 @@ import os
 import warnings
 from typing import Any
 
-import botocore.exceptions
 from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.aws_util import extract_aws_response_status_code
-from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException, MissingParametersException
+from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException, \
+    MissingParametersException
+from cloud.amazon.services.s3.exceptions import BucketNotEmptyException
 from types_extensions import const, safe_type, void, list_type, dict_type
 
 from cloud.amazon.common.aws_service_name_mapping import AWSServiceNameMapping
@@ -172,13 +173,15 @@ class AmazonS3(BaseAmazonService):
         )
         if not ok:
             return
+
+        contents = self.get_objects_in_bucket(
+            bucket_obj=bucket_obj,
+            bucket_name=bucket_name,
+            apply_format_to_bucket=False,
+            exception_level=exception_level
+        )
+
         if force_delete_contents:
-            contents = self.get_objects_in_bucket(
-                bucket_obj=bucket_obj,
-                bucket_name=bucket_name,
-                apply_format_to_bucket=False,
-                exception_level=exception_level
-            )
             if contents:
                 self.delete_objects_from_bucket(
                     bucket_obj=bucket_obj,
@@ -188,9 +191,12 @@ class AmazonS3(BaseAmazonService):
                     apply_format_to_bucket=False,
                     exception_level=exception_level
                 )
+        else:
+            if contents:
+                raise BucketNotEmptyException
         try:
             self._client.delete_bucket(Bucket=bucket_name, **kwargs)
-        except botocore.exceptions.ClientError as e:
+        except aws_exceptions.ClientError as e:
             if exception_level == ExceptionLevels.RAISE:
                 raise
             e = str(e)
@@ -462,10 +468,12 @@ class AmazonS3(BaseAmazonService):
 
         except Exception as e:
             if exception_level == ExceptionLevels.RAISE:
+                if buffer:
+                    buffer.close()
                 raise
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"An unknown exception occurred while trying to:\n"
-                              f"Download {object_name}\nFrom {bucket_name}\nTo {buffer}\nThe error is:\n{e}")
+                              f"Download {object_name}\nFrom {bucket_name}\nTo {destination}\nThe error is:\n{e}")
         finally:
             if buffer:
                 buffer.close()

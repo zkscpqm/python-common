@@ -25,7 +25,6 @@ class CachedProperty(BaseDecorator):
     def __init__(self, wrapped: Callable) -> void:
         super().__init__(wrapped)
         self.cached_var: Any = self._Missing()
-        self.invalidate_method_name = self.build_invalidate_method_name(wrapped.__name__)
 
     @staticmethod
     def build_invalidate_method_name(property_name: str) -> str:
@@ -37,7 +36,8 @@ class CachedProperty(BaseDecorator):
         if self.cached_var is not self._Missing():
             return self.cached_var
         result = self.cached_var = self._func(obj)
-        setattr(obj, self.invalidate_method_name, self.invalidate)
+        invalidate_method_name = self.build_invalidate_method_name(self._func.__name__)
+        setattr(obj, invalidate_method_name, self.invalidate)
         return result
 
     def invalidate(self) -> void:

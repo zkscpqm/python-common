@@ -1,16 +1,27 @@
 from typing import Any
 
 from cloud.amazon.common.base_service_generated_instance import BaseSGI
+from cloud.amazon.common.exception_handling import InvalidAWSResponseException
 from properties_and_methods import CachedProperty
-from types_extensions import void, const, list_type, dict_type, safe_type
+from types_extensions import void, const, list_type, dict_type
 
 
 class AmazonS3Bucket(BaseSGI):
 
     def __init__(self, bucket_name: str, parent, exception_level: int) -> void:
-        super().__init__(exception_level=exception_level)
+        super().__init__(parent=parent, exception_level=exception_level)
         self.bucket_name: const(str) = bucket_name
-        self.parent = parent
+
+    @classmethod
+    def from_aws_response(cls, aws_resp: dict, parent, exception_level: int, **kwargs) -> 'AmazonS3Bucket':
+        try:
+            return AmazonS3Bucket(
+                bucket_name=aws_resp['Name'],
+                parent=parent,
+                exception_level=exception_level
+            )
+        except KeyError:
+            raise InvalidAWSResponseException([['Name']])
 
     def set_exception_level(self, new_level: int) -> void:
         self.exception_level = new_level

@@ -11,7 +11,7 @@ from botocore import exceptions as aws_exceptions
 
 from cloud.amazon.common.exception_handling import ExceptionLevels
 from cloud.amazon.common.service_availability import ServiceAvailability
-from types_extensions import tuple_type, safe_type, void
+from types_extensions import tuple_type, void
 
 
 class BaseAmazonService(abc.ABC):

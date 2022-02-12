@@ -34,5 +34,16 @@ class MissingParametersException(Exception):
         return msg
 
 
-class BucketNotEmptyException(Exception):
-    ...
+class InvalidAWSResponseException(Exception):
+
+    def __init__(self, expected_dict_structures: list_type[list_type[str]]) -> void:
+        self.expected_dict_structures: list_type[str] = [
+            f"aws_response[{']['.join([path_ for path_ in structure])}]"
+            for structure in expected_dict_structures
+        ]
+
+    def __str__(self) -> str:
+        newl_ = "\n"
+        msg = f"The AWS Response you provided is invalid. The given dict requires the following paths:\n" \
+              f"{newl_.join(self.expected_dict_structures)}"
+        return msg
