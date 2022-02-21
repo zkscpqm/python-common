@@ -218,7 +218,7 @@ class AmazonS3(BaseAmazonService):
             if exception_level == ExceptionLevels.RAISE:
                 raise
             if exception_level == ExceptionLevels.WARN:
-                warnings.warn(f"Clienterror: {e}!")
+                warnings.warn(f"Client error: {e}!")
 
         except Exception as e:
             if exception_level == ExceptionLevels.RAISE:

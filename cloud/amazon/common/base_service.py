@@ -16,7 +16,7 @@ from types_extensions import tuple_type
 
 class BaseAmazonService(abc.ABC):
 
-    _backend:  boto3.Session = boto3.Session()
+    _backend: boto3.Session = boto3.Session()
     _client: BaseClient
     default_exception_level: int = ExceptionLevels.RAISE
     region: str = _backend.region_name
