@@ -4,7 +4,7 @@ _assert_py_version(PythonVersion(3, 10))
 
 import abc
 import warnings
-from typing import Any
+from typing import Any, Hashable
 from datetime import datetime as _dt
 
 from meta.singleton_meta import SingletonMeta, ThreadLocalSingletonMeta
@@ -105,7 +105,7 @@ class ContextTable(metaclass=abc.ABCMeta):
                 self.upsert(key=key, value=void, preserve_old_data=preserve_old_data)
 
     @staticmethod
-    def define_key(key: Any) -> Any:
+    def define_key(key: Any) -> Hashable:
         """
         Determine if a given key is hashable. This prevents errors when trying to use things like lists or sets as
         keys in the registry. If the latter occurs, a warning is shown to alert the user the key they gave is not what

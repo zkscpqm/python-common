@@ -168,7 +168,9 @@ class Trie:
         if first_letter not in self.heads:
             if insert_if_missing:
                 self.insert(word)
-            return []
+                return [word]
+            else:
+                return []
         results = self.heads[first_letter].search(word, 0)
         if len(results) == 0 and insert_if_missing:
             self.insert(word)
