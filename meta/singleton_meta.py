@@ -1,4 +1,5 @@
 from types_extensions import dict_type
+import threading
 
 
 class SingletonMeta(type):
@@ -69,12 +70,15 @@ class ThreadLocalSingletonMeta(type):
     }
 
     """
+    tls = threading.local()
+    _locals_key: str = "_singleton_instances"
 
-    _locals_key: str = "__singleton_instances"
-
+    def _init_local(cls):
+        if not getattr(cls.tls, cls._locals_key, None):
+            setattr(cls.tls, cls._locals_key, dict())
+    
     def __call__(cls, *args, **kwargs) -> object:
-        if not locals().get(cls._locals_key):
-            locals()[cls._locals_key]: dict_type[str, object] = {}
-        if cls.__name__ not in locals()[cls._locals_key]:
-            locals()[cls._locals_key][cls.__name__] = super(ThreadLocalSingletonMeta, cls).__call__(*args, **kwargs)
-        return locals()[cls._locals_key][cls.__name__]
+        cls._init_local()
+        if cls.__name__ not in cls.tls._singleton_instances:
+            cls.tls._singleton_instances[cls.__name__] = super(ThreadLocalSingletonMeta, cls).__call__(*args, **kwargs)
+        return cls.tls._singleton_instances[cls.__name__]
