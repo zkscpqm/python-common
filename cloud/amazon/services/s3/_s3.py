@@ -1,13 +1,14 @@
 import os
 import warnings
+from typing import Any
 
-import botocore.exceptions
 from botocore import exceptions as aws_exceptions
 
-from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException
+from cloud.amazon.common.aws_util import extract_aws_response_status_code
+from cloud.amazon.common.exception_handling import ExceptionLevels, InvalidArgumentException, \
+    MissingParametersException
+from cloud.amazon.services.s3.exceptions import BucketNotEmptyException
 from types_extensions import const, safe_type, void, list_type, dict_type
-
-import boto3
 
 from cloud.amazon.common.aws_service_name_mapping import AWSServiceNameMapping
 from cloud.amazon.common.base_service import BaseAmazonService, BaseClient
@@ -21,17 +22,14 @@ class AmazonS3(BaseAmazonService):
     def __init__(self, profile: str = None, region: str = None, default_exception_level: int = None,
                  default_storage_class: str = None, delimiter: str = '', bucket_prefix: str = '',
                  bucket_suffix: str = '') -> void:
-        if profile:
-            self._backend: boto3.Session = boto3.Session(profile_name=profile)
+        super().__init__(profile, region, default_exception_level)
+
         self.default_storage_class: str = default_storage_class or S3StorageClass.STANDARD
 
-        if default_exception_level:
-            self.default_exception_level = default_exception_level
         self.delimiter: str = delimiter
         self.prefix: str = bucket_prefix
         self.suffix: str = bucket_suffix
-        if region:
-            self.region: str = region
+
         self._client: const(BaseClient) = self._backend.client(AWSServiceNameMapping.S3, region_name=self.region)
 
     @property
@@ -47,7 +45,9 @@ class AmazonS3(BaseAmazonService):
             status |= ServiceAvailability.CONNECTED
         return status
 
-    def get_buckets(self, *, exception_level: int = None) -> list_type[str]:
+    def list_buckets(self, exception_level: int = None) -> list_type[str]:
+
+        exception_level = exception_level or self.default_exception_level
         if not self._assert_connection(exception_level):
             return []
         try:
@@ -59,12 +59,36 @@ class AmazonS3(BaseAmazonService):
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"An unknown exception occurred while trying to list buckets:\nThe error is:\n{e}")
 
-    def spawn_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
-                     exception_level: int = None) -> safe_type(AmazonS3Bucket):
+    def list_buckets_as_objects(self, exception_level: int = None) -> list_type[AmazonS3Bucket]:
+
         exception_level = exception_level or self.default_exception_level
-        ok, region, bucket_name = self._setup(exception_level=exception_level,
-                                              root_name=bucket_name,
-                                              build_full_name=apply_format_to_bucket)
+        if not self._assert_connection(exception_level):
+            return []
+        try:
+            aws_resp = self._client.list_buckets()
+            return [
+                self.spawn_bucket_object(
+                    bucket_name=bucket['Name'],
+                    apply_format_to_bucket=False,
+                    exception_level=exception_level
+                )
+                for bucket in aws_resp['Buckets']
+            ]
+        except Exception as e:
+            if exception_level == ExceptionLevels.RAISE:
+                raise
+            if exception_level == ExceptionLevels.WARN:
+                warnings.warn(f"An unknown exception occurred while trying to list bucket objects:\nThe error is:\n{e}")
+
+    def spawn_bucket_object(self, bucket_name: str, apply_format_to_bucket: bool = True,
+                            exception_level: int = None) -> safe_type(AmazonS3Bucket):
+
+        exception_level = exception_level or self.default_exception_level
+        ok, region, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name,
+            build_full_name=apply_format_to_bucket
+        )
         if not ok:
             return None
 
@@ -74,16 +98,28 @@ class AmazonS3(BaseAmazonService):
             exception_level=exception_level
         )
 
-    def create_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
-                      acl: str = 'private', region: str = None, lock_enabled: bool = False,
-                      *, exception_level: int = None, **kwargs) -> safe_type(str):
+    def create_bucket(self, bucket_obj: AmazonS3Bucket = None, bucket_name: str = None,
+                      apply_format_to_bucket: bool = True, acl: str = 'private',
+                      region: str = None, lock_enabled: bool = False, exception_level: int = None,
+                      **kwargs) -> safe_type(AmazonS3Bucket):
+
         exception_level = exception_level or self.default_exception_level
-        ok, region, bucket_name = self._setup(exception_level=exception_level,
-                                              region=region,
-                                              root_name=bucket_name,
-                                              build_full_name=apply_format_to_bucket)
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+        ok, region, bucket_name = self._setup(
+            exception_level=exception_level,
+            region=region,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
         if not ok:
             return None
+
+        bucket_obj = bucket_obj or self.spawn_bucket_object(
+            bucket_name=bucket_name,
+            apply_format_to_bucket=False,
+            exception_level=exception_level
+        )
         try:
             aws_resp = self._client.create_bucket(
                 ACL=acl,
@@ -92,7 +128,8 @@ class AmazonS3(BaseAmazonService):
                 ObjectLockEnabledForBucket=lock_enabled,
                 **kwargs
             )
-            return aws_resp['Location']
+            if extract_aws_response_status_code(aws_resp) < 300:
+                return bucket_obj
 
         except (self._client.exceptions.BucketAlreadyExists,
                 self._client.exceptions.BucketAlreadyOwnedByYou):
@@ -100,7 +137,7 @@ class AmazonS3(BaseAmazonService):
                 raise
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"A bucket with the same name ({bucket_name}) and permissions already exists.")
-            return bucket_name
+            return bucket_obj
 
         except aws_exceptions.ClientError as e:
             if exception_level == ExceptionLevels.RAISE:
@@ -115,35 +152,51 @@ class AmazonS3(BaseAmazonService):
                 raise
             kw_ = "was not"
             rv = None
-            if bucket_name in self.get_buckets(exception_level=exception_level):
+            if bucket_name in self.list_buckets(exception_level=exception_level):
                 kw_ = "was"
-                rv = bucket_name
+                rv = bucket_obj
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"An unknown exception occurred. The bucket {kw_} created. The error is:\n{e}")
             return rv
 
-    def delete_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True, force_delete_contents: bool = False,
+    def delete_bucket(self, bucket_obj: AmazonS3Bucket = None, bucket_name: str = None,
+                      apply_format_to_bucket: bool = True, force_delete_contents: bool = False,
                       exception_level: int = None, **kwargs) -> void:
+
         exception_level = exception_level or self.default_exception_level
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
         if not ok:
             return
+
+        contents = self.get_objects_in_bucket(
+            bucket_obj=bucket_obj,
+            bucket_name=bucket_name,
+            apply_format_to_bucket=False,
+            exception_level=exception_level
+        )
+
         if force_delete_contents:
-            contents = self.get_objects_in_bucket(bucket_name,
-                                                  apply_format_to_bucket=False,
-                                                  exception_level=exception_level
-                                                  )
             if contents:
-                self.delete_objects_from_bucket(bucket_name,
-                                                object_names=[val for val in contents.values()],
-                                                permanently=True,
-                                                apply_format_to_bucket=False,
-                                                exception_level=exception_level)
+                self.delete_objects_from_bucket(
+                    bucket_obj=bucket_obj,
+                    bucket_name=bucket_name,
+                    object_names=[val for val in contents.values()],
+                    permanently=True,
+                    apply_format_to_bucket=False,
+                    exception_level=exception_level
+                )
+        else:
+            if contents:
+                raise BucketNotEmptyException
         try:
             self._client.delete_bucket(Bucket=bucket_name, **kwargs)
-        except botocore.exceptions.ClientError as e:
+        except aws_exceptions.ClientError as e:
             if exception_level == ExceptionLevels.RAISE:
                 raise
             e = str(e)
@@ -159,19 +212,27 @@ class AmazonS3(BaseAmazonService):
                 warnings.warn(f"An unknown exception occurred while trying to{force}:\n"
                               f"Delete {bucket_name}\nThe error is:\n{e}")
 
-    def get_objects_in_bucket(self, bucket_name: str, apply_format_to_bucket: bool = True,
-                              exception_level: int = None, mode: str = 'mapping', **kwargs) -> dict:
+    def get_objects_in_bucket(self, bucket_obj: AmazonS3Bucket = None, bucket_name: str = None,
+                              apply_format_to_bucket: bool = True, exception_level: int = None,
+                              mode: str = 'mapping', **kwargs) -> dict:
+
         _allowed_modes = {'raw', 'mapping'}
         exception_level = exception_level or self.default_exception_level
         if mode not in _allowed_modes:
             raise InvalidArgumentException(mode, _allowed_modes)
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
         if not ok:
             return {}
+
         try:
-            if (bucket_objects := self._client.list_objects(Bucket=bucket_name, **kwargs)).get('Contents'):
+            if bucket_objects := self._client.list_objects(Bucket=bucket_name, **kwargs).get('Contents'):
                 match mode:
 
                     case x if x == 'raw':
@@ -188,18 +249,25 @@ class AmazonS3(BaseAmazonService):
                               f"From {bucket_name}.\nThe error is:\n{e}")
         return {}
 
-    def put_object_in_bucket(self, bucket_name: str, object_path: str, apply_format_to_bucket: bool = True,
-                             object_name: str = None, exception_level: int = None, storage_class: str = None,
-                             acl: str = 'private', encryption: str = 'aws:kms', metadata: dict_type[str, str] = None,
-                             **kwargs) -> bool:
+    def put_object_in_bucket(self, object_path: str, bucket_obj: AmazonS3Bucket = None, bucket_name: str = None,
+                             apply_format_to_bucket: bool = True, object_name: str = None, exception_level: int = None,
+                             storage_class: str = None, acl: str = 'private', encryption: str = 'aws:kms',
+                             metadata: dict_type[str, str] = None, **kwargs) -> bool:
+
         exception_level = exception_level or self.default_exception_level
         storage_class = storage_class or self.default_storage_class
         object_name = object_name or object_path
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
         if not ok:
             return False
+
         try:
             extra_args = {
                 'ACL': acl,
@@ -229,15 +297,24 @@ class AmazonS3(BaseAmazonService):
                               f"The error is:\n{e}")
         return False
 
-    def get_all_object_versions(self, bucket_name: str, object_name: str, match_exact: bool = True,
-                                apply_format_to_bucket: bool = True,
+    def get_all_object_versions(self, object_name: str, bucket_obj: AmazonS3Bucket = None, bucket_name: str = None,
+                                match_exact: bool = True, apply_format_to_bucket: bool = True,
                                 exception_level: int = None, **kwargs) -> list_type[dict_type[str, str]]:
+
         rv = []
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
+
         if not ok:
             return rv
+
         try:
             resp = self._client.list_object_versions(
                 Bucket=bucket_name,
@@ -258,18 +335,34 @@ class AmazonS3(BaseAmazonService):
                               f"For {object_name}\nIn {bucket_name}.\nThe error is:\n{e}")
         return rv
 
-    def delete_object_from_bucket(self, bucket_name: str, object_name: str, permanently: bool = False,
-                                  apply_format_to_bucket: bool = True, exception_level: int = None, **kwargs) -> void:
+    def delete_object_from_bucket(self, object_name: str, bucket_obj: AmazonS3Bucket = None, bucket_name: str = None,
+                                  permanently: bool = False, apply_format_to_bucket: bool = True,
+                                  exception_level: int = None, **kwargs) -> void:
+
         exception_level = exception_level or self.default_exception_level
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
+
+        if not ok:
+            return
+
         try:
             if permanently:
-                all_versions = self.get_all_object_versions(bucket_name, object_name,
-                                                            apply_format_to_bucket=False,
-                                                            exception_level=exception_level,
-                                                            **kwargs)
+                all_versions = self.get_all_object_versions(
+                    object_name=object_name,
+                    bucket_obj=bucket_obj,
+                    bucket_name=bucket_name,
+                    apply_format_to_bucket=False,
+                    exception_level=exception_level,
+                    **kwargs
+                )
                 if len(all_versions) > 0:
                     self._client.delete_objects(
                         Bucket=bucket_name,
@@ -293,20 +386,31 @@ class AmazonS3(BaseAmazonService):
                 warnings.warn(f"An unknown exception occurred while trying to{permanently}:\n"
                               f"Delete {object_name}\nFrom {bucket_name}.\nThe error is:\n{e}")
 
-    def delete_objects_from_bucket(self, bucket_name: str, object_names: list_type[str],
-                                   permanently: bool = False, apply_format_to_bucket: bool = True,
+    def delete_objects_from_bucket(self, object_names: list_type[str], bucket_obj: AmazonS3Bucket = None,
+                                   bucket_name: str = None, permanently: bool = False,
+                                   apply_format_to_bucket: bool = True,
                                    exception_level: int = None, **kwargs) -> void:
+
         exception_level = exception_level or self.default_exception_level
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
+
         if not ok:
             return
+
         try:
             objects_to_delete = []
             for object_name in object_names:
                 if permanently:
                     all_versions = self.get_all_object_versions(
+                        bucket_obj=bucket_obj,
                         bucket_name=bucket_name,
                         object_name=object_name,
                         apply_format_to_bucket=False,
@@ -333,13 +437,19 @@ class AmazonS3(BaseAmazonService):
                 warnings.warn(f"An unknown exception occurred while trying to{permanently} bulk:\n"
                               f"Delete {object_names}\nFrom {bucket_name}.\nThe error is:\n{e}")
 
-    def download_object_from_bucket(self, bucket_name: str, object_name: str, destination: str,
-                                    apply_format_to_bucket: bool = True, exception_level: int = None,
-                                    **kwargs) -> void:
+    def download_object_from_bucket(self, object_name: str, destination: str, bucket_obj: AmazonS3Bucket = None,
+                                    bucket_name: str = None, apply_format_to_bucket: bool = True,
+                                    exception_level: int = None, **kwargs) -> void:
 
-        ok, _, bucket_name = self._setup(exception_level=exception_level,
-                                         root_name=bucket_name,
-                                         build_full_name=apply_format_to_bucket)
+        if not bucket_obj and not bucket_name:
+            self._handle_missing_bucket_params(exception_level)
+
+        ok, _, bucket_name = self._setup(
+            exception_level=exception_level,
+            root_name=bucket_name if not bucket_obj else bucket_obj.bucket_name,
+            build_full_name=apply_format_to_bucket if not bucket_obj else False
+        )
+
         if not ok:
             return
 
@@ -358,10 +468,22 @@ class AmazonS3(BaseAmazonService):
 
         except Exception as e:
             if exception_level == ExceptionLevels.RAISE:
+                if buffer:
+                    buffer.close()
                 raise
             if exception_level == ExceptionLevels.WARN:
                 warnings.warn(f"An unknown exception occurred while trying to:\n"
-                              f"Download {object_name}\nFrom {bucket_name}\nTo {buffer}\nThe error is:\n{e}")
+                              f"Download {object_name}\nFrom {bucket_name}\nTo {destination}\nThe error is:\n{e}")
         finally:
             if buffer:
                 buffer.close()
+
+    def _handle_missing_bucket_params(self, exception_level: int = None, default_return_value: Any = None):
+
+        exception_level = exception_level or self.default_exception_level
+        err_msg = f"You need to provide either an AmazonS3Bucket object or a bucket name"
+        if exception_level == ExceptionLevels.RAISE:
+            raise MissingParametersException(msg=err_msg, parameter_names=['bucket_obj', 'bucket_name'])
+        if exception_level == ExceptionLevels.WARN:
+            warnings.warn(err_msg)
+        return default_return_value
